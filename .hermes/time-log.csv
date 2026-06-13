@@ -1,2 +1,0 @@
-date,start_utc,end_utc,duration_minutes,phase,task,notes,source
-2026-06-13,2026-06-13T08:38:49Z,2026-06-13T08:40:00Z,1.2,"admin","Initialize engineering log","Repo was empty; created project-local engineering journal and time metric templates.","manual"

@@ -1,9 +1,24 @@
 import type { Board, Organization, Venue } from "@queue-reminiscence/db";
 import type { Database } from "@queue-reminiscence/db";
 import { boards, organizations, venues } from "@queue-reminiscence/db/schema";
-import { eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, ne, or } from "drizzle-orm";
 
-import { canOperateBoard, type AdminMembershipContext, type AdminRbacContext } from "../auth/rbac";
+import type { CreateBoardInput, PatchBoardInput } from "./board-input";
+import { patchChangesDisplayVersion } from "./board-input";
+import {
+  closeBoard as closeBoardOperation,
+  openBoard as openBoardOperation,
+  resetBoard as resetBoardOperation,
+  type BoardOperationResult,
+} from "./board-operations";
+export type { BoardOperationResult } from "./board-operations";
+import {
+  canManageVenue,
+  canOperateBoard,
+  canReadVenue,
+  type AdminMembershipContext,
+  type AdminRbacContext,
+} from "../auth/rbac";
 
 export interface OrganizationSummary {
   id: string;
@@ -49,7 +64,40 @@ export interface BoardManagementService {
   listVenues(rbac: AdminRbacContext): Promise<VenueSummary[]>;
   listBoards(rbac: AdminRbacContext): Promise<BoardSummary[]>;
   getBoard(rbac: AdminRbacContext, boardId: string): Promise<BoardSummary | null>;
+  createBoard(rbac: AdminRbacContext, input: CreateBoardInput): Promise<CreateBoardResult>;
+  updateBoard(
+    rbac: AdminRbacContext,
+    boardId: string,
+    patch: PatchBoardInput,
+  ): Promise<UpdateBoardResult>;
+  openBoard(
+    rbac: AdminRbacContext,
+    adminUserId: string,
+    boardId: string,
+  ): Promise<BoardOperationResult | null>;
+  closeBoard(
+    rbac: AdminRbacContext,
+    adminUserId: string,
+    boardId: string,
+  ): Promise<BoardOperationResult | null>;
+  resetBoard(
+    rbac: AdminRbacContext,
+    adminUserId: string,
+    boardId: string,
+  ): Promise<BoardOperationResult | null>;
 }
+
+export type CreateBoardResult =
+  | { status: "created"; board: BoardSummary }
+  | { status: "venue_not_found" }
+  | { status: "forbidden" }
+  | { status: "conflict"; field: "slug" | "publicSlug" };
+
+export type UpdateBoardResult =
+  | { status: "updated"; board: BoardSummary }
+  | { status: "not_found" }
+  | { status: "forbidden" }
+  | { status: "conflict"; field: "slug" | "publicSlug" };
 
 function getAccessibleOrganizationIds(memberships: readonly AdminMembershipContext[]): string[] {
   return [...new Set(memberships.map((membership) => membership.organizationId))];
@@ -98,7 +146,7 @@ function toVenueSummary(venue: Venue): VenueSummary {
   };
 }
 
-function toBoardSummary(board: Board, organizationId: string): BoardSummary {
+export function toBoardSummaryFromRow(board: Board, organizationId: string): BoardSummary {
   return {
     id: board.id,
     venueId: board.venueId,
@@ -187,7 +235,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         .innerJoin(venues, eq(boards.venueId, venues.id))
         .where(or(...accessConditions));
 
-      return rows.map((row) => toBoardSummary(row.board, row.venue.organizationId));
+      return rows.map((row) => toBoardSummaryFromRow(row.board, row.venue.organizationId));
     },
 
     async getBoard(rbac: AdminRbacContext, boardId: string): Promise<BoardSummary | null> {
@@ -212,7 +260,161 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         return null;
       }
 
-      return toBoardSummary(row.board, row.venue.organizationId);
+      return toBoardSummaryFromRow(row.board, row.venue.organizationId);
+    },
+
+    async createBoard(rbac, input): Promise<CreateBoardResult> {
+      const [venue] = await db.select().from(venues).where(eq(venues.id, input.venueId)).limit(1);
+
+      if (!venue) {
+        return { status: "venue_not_found" };
+      }
+
+      if (
+        !canManageVenue(rbac, {
+          organizationId: venue.organizationId,
+          venueId: venue.id,
+        })
+      ) {
+        if (
+          canReadVenue(rbac, {
+            organizationId: venue.organizationId,
+            venueId: venue.id,
+          })
+        ) {
+          return { status: "forbidden" };
+        }
+
+        return { status: "venue_not_found" };
+      }
+
+      const [existingVenueSlug] = await db
+        .select({ id: boards.id })
+        .from(boards)
+        .where(and(eq(boards.venueId, input.venueId), eq(boards.slug, input.slug)))
+        .limit(1);
+
+      if (existingVenueSlug) {
+        return { status: "conflict", field: "slug" };
+      }
+
+      const [existingPublicSlug] = await db
+        .select({ id: boards.id })
+        .from(boards)
+        .where(eq(boards.publicSlug, input.publicSlug))
+        .limit(1);
+
+      if (existingPublicSlug) {
+        return { status: "conflict", field: "publicSlug" };
+      }
+
+      const [created] = await db
+        .insert(boards)
+        .values({
+          venueId: input.venueId,
+          slug: input.slug,
+          publicSlug: input.publicSlug,
+          name: input.name,
+          description: input.description,
+          status: input.status,
+          publicViewPolicy: input.publicViewPolicy,
+          publicAddPolicy: input.publicAddPolicy,
+          publicRemovePolicy: input.publicRemovePolicy,
+          qrRotationPolicy: input.qrRotationPolicy,
+          qrRotationIntervalMinutes: input.qrRotationIntervalMinutes,
+        })
+        .returning();
+
+      return {
+        status: "created",
+        board: toBoardSummaryFromRow(created, venue.organizationId),
+      };
+    },
+
+    async updateBoard(rbac, boardId, patch): Promise<UpdateBoardResult> {
+      const [row] = await db
+        .select({ board: boards, venue: venues })
+        .from(boards)
+        .innerJoin(venues, eq(boards.venueId, venues.id))
+        .where(eq(boards.id, boardId))
+        .limit(1);
+
+      if (!row) {
+        return { status: "not_found" };
+      }
+
+      const resource = {
+        organizationId: row.venue.organizationId,
+        venueId: row.venue.id,
+        boardId: row.board.id,
+      };
+
+      if (!canOperateBoard(rbac, resource)) {
+        return { status: "not_found" };
+      }
+
+      if (!canManageVenue(rbac, resource)) {
+        return { status: "forbidden" };
+      }
+
+      if (patch.slug !== undefined) {
+        const [existingVenueSlug] = await db
+          .select({ id: boards.id })
+          .from(boards)
+          .where(
+            and(
+              eq(boards.venueId, row.board.venueId),
+              eq(boards.slug, patch.slug),
+              ne(boards.id, boardId),
+            ),
+          )
+          .limit(1);
+
+        if (existingVenueSlug) {
+          return { status: "conflict", field: "slug" };
+        }
+      }
+
+      if (patch.publicSlug !== undefined) {
+        const [existingPublicSlug] = await db
+          .select({ id: boards.id })
+          .from(boards)
+          .where(and(eq(boards.publicSlug, patch.publicSlug), ne(boards.id, boardId)))
+          .limit(1);
+
+        if (existingPublicSlug) {
+          return { status: "conflict", field: "publicSlug" };
+        }
+      }
+
+      const updates: Partial<Board> = { ...patch };
+
+      if (patchChangesDisplayVersion(patch)) {
+        updates.displayVersion = row.board.displayVersion + 1;
+      }
+
+      const [updated] = await db
+        .update(boards)
+        .set(updates)
+        .where(eq(boards.id, boardId))
+        .returning();
+
+      return {
+        status: "updated",
+        board: toBoardSummaryFromRow(updated, row.venue.organizationId),
+      };
+    },
+
+    openBoard(rbac, adminUserId, boardId) {
+      return openBoardOperation(db, rbac, adminUserId, boardId);
+    },
+
+    closeBoard(rbac, adminUserId, boardId) {
+      return closeBoardOperation(db, rbac, adminUserId, boardId);
+    },
+
+    resetBoard(rbac, adminUserId, boardId) {
+      return resetBoardOperation(db, rbac, adminUserId, boardId);
     },
   };
 }

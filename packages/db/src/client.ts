@@ -5,6 +5,9 @@ import * as schema from "./schema";
 
 export type Database = ReturnType<typeof createDb>;
 
+/** Transaction handle passed to `db.transaction()` callbacks (postgres-js driver). */
+export type DbTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
 export function createDb(databaseUrl: string) {
   const client = postgres(databaseUrl);
   return drizzle(client, { schema });

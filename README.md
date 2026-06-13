@@ -49,6 +49,15 @@ bun install
 bun run check
 ```
 
+After Postgres is running and migrations are applied, seed the local demo org, venue, board, and admin:
+
+```bash
+cp .env.example .env
+# set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD in .env
+bun run --cwd packages/db db:migrate
+bun run --cwd packages/db db:seed
+```
+
 Current quality gate:
 
 ```bash

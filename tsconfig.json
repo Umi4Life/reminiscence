@@ -4,5 +4,12 @@
     "allowJs": true,
     "checkJs": true
   },
-  "include": ["eslint.config.js"]
+  "include": [
+    "eslint.config.js",
+    "apps/**/*.js",
+    "apps/**/*.ts",
+    "packages/**/*.js",
+    "packages/**/*.ts"
+  ],
+  "exclude": ["node_modules", ".svelte-kit", "build", "dist", "coverage"]
 }

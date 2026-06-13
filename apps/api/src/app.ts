@@ -4,10 +4,17 @@ import type { Database } from "@queue-reminiscence/db";
 import { createDb } from "@queue-reminiscence/db";
 import { Elysia } from "elysia";
 
+import {
+  createDbBoardManagementService,
+  type BoardManagementService,
+} from "./admin/board-management";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
 import { ApiError } from "./http/errors";
 import { apiFailure } from "./http/response";
 import { adminAuthRoutes } from "./routes/admin-auth";
+import { adminBoardsRoutes } from "./routes/admin-boards";
+import { adminOrganizationsRoutes } from "./routes/admin-organizations";
+import { adminVenuesRoutes } from "./routes/admin-venues";
 import { healthRoutes, isDatabaseReachable } from "./routes/health";
 
 export interface AppDeps {
@@ -15,6 +22,7 @@ export interface AppDeps {
   db?: Database;
   checkDatabase?: () => Promise<boolean>;
   adminAuthService?: AdminAuthService;
+  boardManagementService?: BoardManagementService;
 }
 
 function loadAppConfig(): AppConfig {
@@ -36,6 +44,12 @@ export function createApp(deps: AppDeps = {}) {
       return isDatabaseReachable(db);
     });
   const adminAuthService = deps.adminAuthService ?? createDbAdminAuthService(db, config);
+  const boardManagementService = deps.boardManagementService ?? createDbBoardManagementService(db);
+
+  const adminRouteDeps = {
+    authService: adminAuthService,
+    boardManagementService,
+  };
 
   return new Elysia({ name: "queue-reminiscence-api" })
     .onError(({ error, set }) => {
@@ -54,7 +68,10 @@ export function createApp(deps: AppDeps = {}) {
       };
     })
     .use(healthRoutes({ checkDatabase }))
-    .use(adminAuthRoutes({ authService: adminAuthService, config }));
+    .use(adminAuthRoutes({ authService: adminAuthService, config }))
+    .use(adminOrganizationsRoutes(adminRouteDeps))
+    .use(adminVenuesRoutes(adminRouteDeps))
+    .use(adminBoardsRoutes(adminRouteDeps));
 }
 
 export function createTestApp(deps: AppDeps = {}) {

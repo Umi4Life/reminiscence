@@ -3,6 +3,7 @@ import { Elysia } from "elysia";
 
 import type { AdminAuthService, AdminSessionContext, LoginResult } from "../auth/admin-sessions";
 import { ADMIN_SESSION_COOKIE_NAME } from "../auth/admin-sessions";
+import { readAdminSessionToken } from "../auth/admin-route-auth";
 import { unauthorizedError, validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
 
@@ -14,36 +15,6 @@ export interface AdminAuthRouteDeps {
 interface LoginBody {
   email?: unknown;
   password?: unknown;
-}
-
-function parseCookieHeader(header: string | null): Map<string, string> {
-  const cookies = new Map<string, string>();
-
-  if (!header) {
-    return cookies;
-  }
-
-  for (const part of header.split(";")) {
-    const trimmed = part.trim();
-    const separatorIndex = trimmed.indexOf("=");
-
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const name = trimmed.slice(0, separatorIndex).trim();
-    const value = trimmed.slice(separatorIndex + 1).trim();
-
-    if (name.length > 0) {
-      cookies.set(name, decodeURIComponent(value));
-    }
-  }
-
-  return cookies;
-}
-
-function readSessionToken(headers: Headers): string | undefined {
-  return parseCookieHeader(headers.get("cookie")).get(ADMIN_SESSION_COOKIE_NAME);
 }
 
 function serializeSessionCookie(
@@ -119,7 +90,7 @@ export function adminAuthRoutes(deps: AdminAuthRouteDeps) {
       return apiSuccess(serializeLoginResult(result));
     })
     .post("/api/admin/auth/logout", async ({ request, set }) => {
-      const token = readSessionToken(request.headers);
+      const token = readAdminSessionToken(request.headers);
 
       if (token) {
         await deps.authService.logout(token);
@@ -130,7 +101,7 @@ export function adminAuthRoutes(deps: AdminAuthRouteDeps) {
       return apiSuccess({ loggedOut: true });
     })
     .get("/api/admin/me", async ({ request }) => {
-      const token = readSessionToken(request.headers);
+      const token = readAdminSessionToken(request.headers);
 
       if (!token) {
         throw unauthorizedError();

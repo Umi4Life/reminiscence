@@ -1,7 +1,7 @@
 import type { DisplayNameValidationResult, SlugValidationResult } from "./types";
 
 const maxDisplayNameLength = 40;
-const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const slugPattern = /^[a-z0-9._~-]+$/;
 
 export function validateDisplayName(input: string): DisplayNameValidationResult {
   const value = input.trim().replace(/\s+/g, " ");
@@ -38,7 +38,7 @@ export function validateSlug(input: string): SlugValidationResult {
     return {
       ok: false,
       code: "slug_invalid",
-      message: "Slug must contain lowercase letters, numbers, and single hyphens only.",
+      message: "Slug must contain only lowercase URL-safe characters.",
     };
   }
 

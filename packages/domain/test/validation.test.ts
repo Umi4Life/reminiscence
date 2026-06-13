@@ -35,31 +35,30 @@ describe("validateDisplayName", () => {
 describe("validateSlug", () => {
   test("accepts lowercase URL-safe slugs", () => {
     expect(validateSlug("red-jacket-2")).toEqual({ ok: true, value: "red-jacket-2" });
+    expect(validateSlug("red_jacket.2~demo")).toEqual({
+      ok: true,
+      value: "red_jacket.2~demo",
+    });
   });
 
   test("rejects uppercase slugs", () => {
     expect(validateSlug("Red-jacket")).toEqual({
       ok: false,
       code: "slug_invalid",
-      message: "Slug must contain lowercase letters, numbers, and single hyphens only.",
+      message: "Slug must contain only lowercase URL-safe characters.",
     });
   });
 
-  test("rejects leading, trailing, and repeated hyphens", () => {
-    expect(validateSlug("-red-jacket")).toEqual({
+  test("rejects characters that are not URL-safe slug characters", () => {
+    expect(validateSlug("red jacket")).toEqual({
       ok: false,
       code: "slug_invalid",
-      message: "Slug must contain lowercase letters, numbers, and single hyphens only.",
+      message: "Slug must contain only lowercase URL-safe characters.",
     });
-    expect(validateSlug("red-jacket-")).toEqual({
+    expect(validateSlug("red/jacket")).toEqual({
       ok: false,
       code: "slug_invalid",
-      message: "Slug must contain lowercase letters, numbers, and single hyphens only.",
-    });
-    expect(validateSlug("red--jacket")).toEqual({
-      ok: false,
-      code: "slug_invalid",
-      message: "Slug must contain lowercase letters, numbers, and single hyphens only.",
+      message: "Slug must contain only lowercase URL-safe characters.",
     });
   });
 

@@ -15,6 +15,13 @@
       "when": 1781357235331,
       "tag": "0001_silly_blue_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781358310815,
+      "tag": "0002_curly_inertia",
+      "breakpoints": true
     }
   ]
 }

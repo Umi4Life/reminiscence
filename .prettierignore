@@ -1,0 +1,8 @@
+node_modules/
+.svelte-kit/
+dist/
+coverage/
+postgres-data/
+.env
+.env.*
+bun.lock

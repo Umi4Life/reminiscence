@@ -1328,26 +1328,26 @@ These are not blockers for the PRD, but should be resolved during design/build:
 
 ## 22. Current Recommended Defaults
 
-| Area | Recommended Default |
-| --- | --- |
-| Product name | Queue Reminiscence |
-| Participant accounts | None |
-| Board creation | Admin/operator only |
-| Hierarchy | Organization -> Venue -> Board |
-| Public board URL | Readable public slug |
-| Public edit access | Current QR/access credential required |
-| Board mode | Protected Open Board |
-| Removal wording | Remove |
-| Removal behavior | Soft-remove |
-| Public log | Collapsible, collapsed by default |
-| Admin accounts | Required |
-| Admin UI | Separate web UI/subdomain/port |
-| QR rotation | Manual in MVP, scheduled later |
-| E-ink support | Design in MVP, full device management later |
-| Auto-reset | Manual only for MVP |
-| Notifications | Out of scope |
-| Initial deployment | Local community demo |
-| Future path | SaaS-compatible data model |
+| Area                 | Recommended Default                         |
+| -------------------- | ------------------------------------------- |
+| Product name         | Queue Reminiscence                          |
+| Participant accounts | None                                        |
+| Board creation       | Admin/operator only                         |
+| Hierarchy            | Organization -> Venue -> Board              |
+| Public board URL     | Readable public slug                        |
+| Public edit access   | Current QR/access credential required       |
+| Board mode           | Protected Open Board                        |
+| Removal wording      | Remove                                      |
+| Removal behavior     | Soft-remove                                 |
+| Public log           | Collapsible, collapsed by default           |
+| Admin accounts       | Required                                    |
+| Admin UI             | Separate web UI/subdomain/port              |
+| QR rotation          | Manual in MVP, scheduled later              |
+| E-ink support        | Design in MVP, full device management later |
+| Auto-reset           | Manual only for MVP                         |
+| Notifications        | Out of scope                                |
+| Initial deployment   | Local community demo                        |
+| Future path          | SaaS-compatible data model                  |
 
 ---
 

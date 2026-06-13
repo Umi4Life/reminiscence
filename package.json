@@ -8,6 +8,19 @@
     "packages/*"
   ],
   "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "bun test --pass-with-no-tests",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test",
     "install:check": "bun install --frozen-lockfile"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.5.0",
+    "prettier": "^3.8.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.0"
   }
 }

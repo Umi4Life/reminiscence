@@ -4,14 +4,17 @@ import type { Database } from "@queue-reminiscence/db";
 import { createDb } from "@queue-reminiscence/db";
 import { Elysia } from "elysia";
 
+import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
 import { ApiError } from "./http/errors";
 import { apiFailure } from "./http/response";
+import { adminAuthRoutes } from "./routes/admin-auth";
 import { healthRoutes, isDatabaseReachable } from "./routes/health";
 
 export interface AppDeps {
   config?: AppConfig;
   db?: Database;
   checkDatabase?: () => Promise<boolean>;
+  adminAuthService?: AdminAuthService;
 }
 
 function loadAppConfig(): AppConfig {
@@ -32,6 +35,7 @@ export function createApp(deps: AppDeps = {}) {
     (async () => {
       return isDatabaseReachable(db);
     });
+  const adminAuthService = deps.adminAuthService ?? createDbAdminAuthService(db, config);
 
   return new Elysia({ name: "queue-reminiscence-api" })
     .onError(({ error, set }) => {
@@ -49,7 +53,8 @@ export function createApp(deps: AppDeps = {}) {
         },
       };
     })
-    .use(healthRoutes({ checkDatabase }));
+    .use(healthRoutes({ checkDatabase }))
+    .use(adminAuthRoutes({ authService: adminAuthService, config }));
 }
 
 export function createTestApp(deps: AppDeps = {}) {

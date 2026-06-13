@@ -8,6 +8,13 @@
       "when": 1781356422701,
       "tag": "0000_red_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781357235331,
+      "tag": "0001_silly_blue_marvel",
+      "breakpoints": true
     }
   ]
 }

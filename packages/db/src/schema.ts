@@ -1,4 +1,6 @@
+import { desc } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   index,
   integer,
   pgEnum,
@@ -22,6 +24,24 @@ export const publicMutationPolicyEnum = pgEnum("public_mutation_policy", [
 ]);
 
 export const qrRotationPolicyEnum = pgEnum("qr_rotation_policy", ["manual", "scheduled"]);
+
+export const queueEntryStatusEnum = pgEnum("queue_entry_status", ["active", "removed"]);
+
+export const boardEventActorTypeEnum = pgEnum("board_event_actor_type", [
+  "public",
+  "admin",
+  "system",
+]);
+
+export const boardEventTypeEnum = pgEnum("board_event_type", [
+  "entry_added",
+  "entry_removed",
+  "entry_restored",
+  "board_reset",
+  "board_opened",
+  "board_closed",
+  "access_rotated",
+]);
 
 export const organizations = pgTable(
   "organizations",
@@ -93,9 +113,73 @@ export const boards = pgTable(
   ],
 );
 
+export const queueEntries = pgTable(
+  "queue_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id),
+    displayName: varchar("display_name", { length: 40 }).notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    status: queueEntryStatusEnum("status").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    removedAt: timestamp("removed_at", { withTimezone: true, mode: "date" }),
+    removedByEventId: uuid("removed_by_event_id").references((): AnyPgColumn => boardEvents.id),
+  },
+  (table) => [
+    index("queue_entries_board_status_sort_order_idx").on(
+      table.boardId,
+      table.status,
+      table.sortOrder,
+    ),
+  ],
+);
+
+export const boardEvents = pgTable(
+  "board_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id),
+    actorType: boardEventActorTypeEnum("actor_type").notNull(),
+    actorAdminUserId: uuid("actor_admin_user_id"),
+    type: boardEventTypeEnum("type").notNull(),
+    entryId: uuid("entry_id").references((): AnyPgColumn => queueEntries.id),
+    displayNameSnapshot: varchar("display_name_snapshot", { length: 40 }),
+    publicMessage: text("public_message").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("board_events_board_id_created_at_idx").on(table.boardId, desc(table.createdAt)),
+  ],
+);
+
+export const auditMetadata = pgTable(
+  "audit_metadata",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => boardEvents.id),
+    ipHash: varchar("ip_hash", { length: 64 }),
+    userAgentHash: varchar("user_agent_hash", { length: 64 }),
+    publicSessionId: varchar("public_session_id", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [index("audit_metadata_event_id_idx").on(table.eventId)],
+);
+
 export type Organization = typeof organizations.$inferSelect;
 export type NewOrganization = typeof organizations.$inferInsert;
 export type Venue = typeof venues.$inferSelect;
 export type NewVenue = typeof venues.$inferInsert;
 export type Board = typeof boards.$inferSelect;
 export type NewBoard = typeof boards.$inferInsert;
+export type QueueEntry = typeof queueEntries.$inferSelect;
+export type NewQueueEntry = typeof queueEntries.$inferInsert;
+export type BoardEvent = typeof boardEvents.$inferSelect;
+export type NewBoardEvent = typeof boardEvents.$inferInsert;
+export type AuditMetadata = typeof auditMetadata.$inferSelect;
+export type NewAuditMetadata = typeof auditMetadata.$inferInsert;

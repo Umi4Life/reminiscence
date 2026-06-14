@@ -11,5 +11,13 @@
     "packages/**/*.js",
     "packages/**/*.ts"
   ],
-  "exclude": ["node_modules", ".svelte-kit", "build", "dist", "coverage"]
+  "exclude": [
+    "node_modules",
+    ".svelte-kit",
+    "build",
+    "dist",
+    "coverage",
+    "apps/public-web",
+    "apps/admin-web"
+  ]
 }

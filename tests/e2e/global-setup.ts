@@ -65,6 +65,20 @@ function writeEnvIfMissing(): void {
   console.log(`[global-setup] Wrote ${envPath}`);
 }
 
+function resetBoardState(): void {
+  console.log("[global-setup] Resetting board state...");
+  const boardId = "(SELECT id FROM boards WHERE slug = 'chunithm-gold')";
+  const sql = [
+    `UPDATE queue_entries SET removed_by_event_id = NULL WHERE board_id = ${boardId};`,
+    `DELETE FROM audit_metadata WHERE event_id IN (SELECT id FROM board_events WHERE board_id = ${boardId});`,
+    `DELETE FROM board_events WHERE board_id = ${boardId};`,
+    `DELETE FROM queue_entries WHERE board_id = ${boardId};`,
+    `UPDATE boards SET status = 'closed' WHERE slug = 'chunithm-gold';`,
+  ].join(" ");
+  runSilent(`docker exec ${CONTAINER} psql -U ${PG_USER} -d ${PG_USER} -c "${sql}"`);
+  console.log("[global-setup] Board state reset.");
+}
+
 export default async function globalSetup(): Promise<void> {
   await startPostgres();
   await waitForPostgres();
@@ -78,4 +92,6 @@ export default async function globalSetup(): Promise<void> {
 
   console.log("[global-setup] Running db:seed...");
   execSync("bun run --cwd packages/db db:seed", { stdio: "inherit", env });
+
+  resetBoardState();
 }

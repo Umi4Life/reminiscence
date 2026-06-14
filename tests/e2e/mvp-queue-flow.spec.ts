@@ -1,0 +1,88 @@
+import { expect, test, type Page } from "@playwright/test";
+import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/env";
+
+test.describe("MVP queue flow", () => {
+  test.describe.configure({ mode: "serial" });
+
+  let adminPage: Page;
+  let publicPage: Page;
+  let accessUrl = "";
+
+  test.beforeAll(async ({ browser }) => {
+    const adminCtx = await browser.newContext();
+    const publicCtx = await browser.newContext();
+    adminPage = await adminCtx.newPage();
+    publicPage = await publicCtx.newPage();
+  });
+
+  test.afterAll(async () => {
+    await adminPage.context().close();
+    await publicPage.context().close();
+  });
+
+  test("admin logs in and sees CHUNITHM Gold on dashboard", async () => {
+    await adminPage.goto("http://localhost:3001/login");
+    await adminPage.locator('input[name="email"]').fill(ADMIN_EMAIL);
+    await adminPage.locator('input[name="password"]').fill(ADMIN_PASSWORD);
+    await adminPage.getByRole("button", { name: "Sign in" }).click();
+    await expect(adminPage.getByText("CHUNITHM Gold")).toBeVisible();
+  });
+
+  test("admin opens board", async () => {
+    await adminPage.getByText("CHUNITHM Gold").click();
+    const openBtn = adminPage.getByRole("button", { name: "Open board" });
+    const closeBtn = adminPage.getByRole("button", { name: "Close board" });
+    // Wait for board page to load (either button must be visible)
+    await expect(openBtn.or(closeBtn)).toBeVisible();
+    // Close first if already open, so we exercise the open flow
+    if (await closeBtn.isVisible()) {
+      await closeBtn.click();
+      await adminPage.getByRole("dialog").getByRole("button", { name: "Close board" }).click();
+      await expect(openBtn).toBeVisible();
+    }
+    // Clear any stale queue entries from prior runs
+    await adminPage.getByRole("button", { name: "Reset queue" }).click();
+    await adminPage.getByRole("dialog").getByRole("button", { name: "Reset queue" }).click();
+    await openBtn.click();
+    await expect(closeBtn).toBeVisible();
+  });
+
+  test("admin rotates QR link and reads access URL", async () => {
+    await adminPage.getByRole("button", { name: "Rotate QR link" }).click();
+    await adminPage.getByRole("button", { name: "Rotate link" }).click();
+    const rotateUrlEl = adminPage.locator(".rotate-url");
+    await expect(rotateUrlEl).toBeVisible();
+    accessUrl = (await rotateUrlEl.textContent())?.trim() ?? "";
+    expect(accessUrl).toMatch(/\/q\//);
+  });
+
+  test("participant claims access via QR link", async () => {
+    await publicPage.goto(accessUrl);
+    await expect(publicPage).toHaveURL(/\/b\/local-demo-venue-chunithm-gold/);
+    await expect(publicPage.getByRole("heading", { name: "CHUNITHM Gold" })).toBeVisible();
+  });
+
+  test("participant adds Aki to queue", async () => {
+    await publicPage.locator("#display-name").fill("Aki");
+    await publicPage.getByRole("button", { name: "Join queue" }).click();
+    await expect(publicPage.locator(".name", { hasText: "Aki" })).toBeVisible();
+  });
+
+  test("participant removes Aki from queue", async () => {
+    await publicPage.getByRole("button", { name: "Remove" }).click();
+    await publicPage.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
+    await expect(publicPage.getByText("No one is waiting yet.")).toBeVisible();
+  });
+
+  test("recent activity shows joined and left events on public page", async () => {
+    await publicPage.getByRole("button", { name: /Recent Activity/ }).click();
+    await expect(publicPage.getByText("Aki joined the queue.")).toBeVisible();
+    await expect(publicPage.getByText("Aki left the queue.")).toBeVisible();
+  });
+
+  test("admin sees Aki events in event history", async () => {
+    await adminPage.reload();
+    await expect(adminPage.getByText("Aki joined the queue.")).toBeVisible();
+    await expect(adminPage.getByText("Aki left the queue.")).toBeVisible();
+  });
+});

@@ -3,7 +3,7 @@ import { boardEvents, boards, queueEntries } from "@queue-reminiscence/db/schema
 import { and, eq, sql } from "drizzle-orm";
 
 import { assertCanOperateBoard, type AdminRbacContext } from "../auth/rbac";
-import { loadBoardWithResourceContext, lockBoardRow } from "./board-context";
+import { loadBoardWithResourceContext, lockBoardRow } from "../boards/board-context";
 import {
   BOARD_CLOSED_PUBLIC_MESSAGE,
   BOARD_OPENED_PUBLIC_MESSAGE,

@@ -10,10 +10,11 @@ import {
 } from "./admin/board-management";
 import { createDbBoardAccessService, type BoardAccessService } from "./access/board-access";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
-import { createDbPublicBoardReadService, type PublicBoardReadService } from "./public/board-read";
 import { createDbPublicSessionService, type PublicSessionService } from "./auth/public-sessions";
 import { ApiError } from "./http/errors";
 import { apiFailure } from "./http/response";
+import { createDbPublicBoardReadService, type PublicBoardReadService } from "./queue/read";
+import { createDbQueueMutationService, type QueueMutationService } from "./queue/mutations";
 import { adminAuthRoutes } from "./routes/admin-auth";
 import { adminBoardsRoutes } from "./routes/admin-boards";
 import { adminOrganizationsRoutes } from "./routes/admin-organizations";
@@ -31,6 +32,7 @@ export interface AppDeps {
   boardAccessService?: BoardAccessService;
   publicSessionService?: PublicSessionService;
   publicBoardReadService?: PublicBoardReadService;
+  queueMutationService?: QueueMutationService;
 }
 
 function loadAppConfig(): AppConfig {
@@ -57,7 +59,9 @@ export function createApp(deps: AppDeps = {}) {
   const publicSessionService =
     deps.publicSessionService ?? createDbPublicSessionService(db, config);
   const publicBoardReadService =
-    deps.publicBoardReadService ?? createDbPublicBoardReadService(db, config);
+    deps.publicBoardReadService ?? createDbPublicBoardReadService(db, config, publicSessionService);
+  const queueMutationService =
+    deps.queueMutationService ?? createDbQueueMutationService(db, config, publicSessionService);
 
   const adminRouteDeps = {
     authService: adminAuthService,
@@ -87,7 +91,7 @@ export function createApp(deps: AppDeps = {}) {
     .use(adminVenuesRoutes(adminRouteDeps))
     .use(adminBoardsRoutes(adminRouteDeps))
     .use(publicAccessRoutes({ config, publicSessionService }))
-    .use(publicBoardsRoutes({ config, publicBoardReadService, publicSessionService }));
+    .use(publicBoardsRoutes({ config, publicBoardReadService, queueMutationService }));
 }
 
 export function createTestApp(deps: AppDeps = {}) {

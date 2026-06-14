@@ -1,128 +1,96 @@
 import { describe, expect, test } from "bun:test";
 
-import type { PublicSessionService } from "../src/auth/public-sessions";
-import { PUBLIC_BOARD_SESSION_COOKIE_NAME } from "../src/auth/public-sessions";
 import { createTestApp } from "../src/app";
-import type { PublicBoardRead, PublicBoardReadService } from "../src/public/board-read";
+import type { PublicBoardReadService } from "../src/queue/read";
 import { testAppConfig } from "./test-config";
 
-const publicBoard: PublicBoardRead = {
+const timestamp = new Date("2026-06-01T00:00:00.000Z");
+const mutationExpiresAt = new Date("2030-01-02T03:04:05.000Z");
+
+const boardFixture = {
+  organization: {
+    id: "org-1",
+    slug: "org-a",
+    name: "Organization A",
+  },
+  venue: {
+    id: "venue-1",
+    slug: "venue-a1",
+    name: "Venue A1",
+  },
   board: {
     publicSlug: "demo-queue",
     name: "Demo Queue",
-    status: "open",
-    venueName: "Echo MBK",
-    organizationName: "Echo EX10",
+    description: null,
+    status: "open" as const,
+    publicAddPolicy: "access_code_required" as const,
+    publicRemovePolicy: "access_code_required" as const,
+    displayVersion: 3,
+    updatedAt: timestamp,
   },
   queue: [
-    { position: 1, displayName: "Aki" },
-    { position: 2, displayName: "Mika" },
+    {
+      id: "entry-1",
+      displayName: "Aki",
+      position: 1,
+      sortOrder: 1,
+      createdAt: timestamp,
+    },
   ],
-  queueLength: 2,
-  displayVersion: 7,
-  updatedAt: new Date("2030-01-01T12:00:00.000Z"),
-  canMutate: false,
+  mutationAccess: {
+    available: true,
+    expiresAt: mutationExpiresAt,
+    canAdd: true,
+    canRemove: true,
+  },
+};
+
+const serializedBoardFixture = {
+  ...boardFixture,
+  board: {
+    ...boardFixture.board,
+    updatedAt: timestamp.toISOString(),
+  },
+  queue: boardFixture.queue.map((entry) => ({
+    ...entry,
+    createdAt: timestamp.toISOString(),
+  })),
+  mutationAccess: {
+    ...boardFixture.mutationAccess,
+    expiresAt: mutationExpiresAt.toISOString(),
+  },
 };
 
 function createFakePublicBoardReadService(
   overrides: Partial<PublicBoardReadService> = {},
-): PublicBoardReadService & { getCalls: Array<{ publicSlug: string; sessionToken?: string }> } {
-  const getCalls: Array<{ publicSlug: string; sessionToken?: string }> = [];
-
+): PublicBoardReadService {
   return {
-    getCalls,
-
-    async getBoardByPublicSlug(publicSlug, sessionToken) {
-      getCalls.push({ publicSlug, sessionToken });
-
-      if (publicSlug === "unknown-slug") {
-        return { status: "not_found" };
+    async getBoard(publicSlug) {
+      if (publicSlug !== "demo-queue") {
+        return null;
       }
 
-      if (publicSlug === "restricted-queue") {
-        return { status: "forbidden" };
-      }
-
-      if (sessionToken === "valid-session-token") {
-        return {
-          status: "ok",
-          board: {
-            ...publicBoard,
-            canMutate: true,
-            mutationAccessExpiresAt: new Date("2030-01-02T03:04:05.000Z"),
-          },
-        };
-      }
-
-      return { status: "ok", board: publicBoard };
+      return boardFixture;
     },
 
-    async listRecentEvents() {
-      throw new Error("not implemented in board read route tests");
+    async getEvents() {
+      throw new Error("not implemented in read route tests");
     },
 
     ...overrides,
   };
 }
 
-function createFakePublicSessionService(): PublicSessionService {
-  return {
-    async claimAccess() {
-      throw new Error("not implemented in board read route tests");
-    },
-
-    async resolveSession() {
-      throw new Error("not implemented in board read route tests");
-    },
-
-    async logout() {
-      throw new Error("not implemented in board read route tests");
-    },
-  };
-}
-
 function createApp(publicBoardReadService = createFakePublicBoardReadService()) {
   return createTestApp({
     config: testAppConfig,
-    publicSessionService: createFakePublicSessionService(),
     publicBoardReadService,
     checkDatabase: async () => true,
   });
 }
 
-describe("public board read routes", () => {
-  test("unknown slug returns 404", async () => {
-    const app = createApp();
-
-    const response = await app.handle(
-      new Request("http://localhost/api/public/boards/unknown-slug"),
-    );
-
-    expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({
-      ok: false,
-      error: { code: "not_found", message: "Resource not found." },
-    });
-  });
-
-  test("restricted board returns 403", async () => {
-    const app = createApp();
-
-    const response = await app.handle(
-      new Request("http://localhost/api/public/boards/restricted-queue"),
-    );
-
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({
-      ok: false,
-      error: {
-        code: "forbidden",
-        message: "You do not have permission to perform this action.",
-      },
-    });
-  });
-
-  test("returns active entries with derived positions", async () => {
+describe("public board read route", () => {
+  test("returns board payload with derived queue positions", async () => {
     const app = createApp();
 
     const response = await app.handle(new Request("http://localhost/api/public/boards/demo-queue"));
@@ -131,47 +99,25 @@ describe("public board read routes", () => {
     expect(await response.json()).toEqual({
       ok: true,
       data: {
-        board: publicBoard.board,
-        queue: publicBoard.queue,
-        queueLength: 2,
-        displayVersion: 7,
-        updatedAt: "2030-01-01T12:00:00.000Z",
-        canMutate: false,
+        board: serializedBoardFixture,
       },
     });
   });
 
-  test("session cookie is forwarded for mutation access flags", async () => {
-    const publicBoardReadService = createFakePublicBoardReadService();
-    const app = createApp(publicBoardReadService);
+  test("returns 404 for unknown public slug", async () => {
+    const app = createApp();
 
     const response = await app.handle(
-      new Request("http://localhost/api/public/boards/demo-queue", {
-        headers: { cookie: `${PUBLIC_BOARD_SESSION_COOKIE_NAME}=valid-session-token` },
-      }),
+      new Request("http://localhost/api/public/boards/missing-queue"),
     );
 
-    expect(response.status).toBe(200);
-    expect(publicBoardReadService.getCalls).toEqual([
-      { publicSlug: "demo-queue", sessionToken: "valid-session-token" },
-    ]);
-
-    const json = (await response.json()) as {
-      ok: boolean;
-      data: { canMutate: boolean; mutationAccessExpiresAt?: string };
-    };
-
-    expect(json.data.canMutate).toBe(true);
-    expect(json.data.mutationAccessExpiresAt).toBe("2030-01-02T03:04:05.000Z");
-  });
-
-  test("request without session cookie omits session token", async () => {
-    const publicBoardReadService = createFakePublicBoardReadService();
-    const app = createApp(publicBoardReadService);
-
-    await app.handle(new Request("http://localhost/api/public/boards/demo-queue"));
-
-    expect(publicBoardReadService.getCalls).toEqual([{ publicSlug: "demo-queue" }]);
-    expect(publicBoardReadService.getCalls[0]?.sessionToken === undefined).toBe(true);
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: {
+        code: "not_found",
+        message: "Resource not found.",
+      },
+    });
   });
 });

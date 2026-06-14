@@ -12,12 +12,15 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit --project tsconfig.json",
-    "test": "bun test --pass-with-no-tests",
+    "test": "bun test apps packages --pass-with-no-tests",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run test",
-    "install:check": "bun install --frozen-lockfile"
+    "install:check": "bun install --frozen-lockfile",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium --with-deps"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.49.0",
     "@types/node": "^24.3.0",
     "eslint": "^10.5.0",
     "prettier": "^3.8.4",

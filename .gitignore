@@ -11,3 +11,6 @@ coverage/
 *.sqlite
 *.sqlite3
 postgres-data/
+test-results/
+playwright-report/
+playwright/.cache/

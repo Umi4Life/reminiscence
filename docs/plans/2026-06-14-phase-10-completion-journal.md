@@ -8,10 +8,10 @@
 
 Phase 10 delivered the participant-facing SvelteKit app at `apps/public-web/`. Work was split into two parallel PRs: scaffold + QR claim first, then board UI stacked on the scaffold branch.
 
-| PR  | Scope                         | Worker / lane     | Result                                                                 |
-| --- | ----------------------------- | ----------------- | ---------------------------------------------------------------------- |
-| #28 | Tasks 10.1 + 10.2             | `hermes-cursor-1` | SvelteKit scaffold, `api.ts`, `/q/[accessCode]` claim + redirect       |
-| #29 | Task 10.3                     | `hermes-cursor-2` | `/b/[publicSlug]` board view, add/remove, confirm dialog, activity list |
+| PR  | Scope             | Worker / lane     | Result                                                                  |
+| --- | ----------------- | ----------------- | ----------------------------------------------------------------------- |
+| #28 | Tasks 10.1 + 10.2 | `hermes-cursor-1` | SvelteKit scaffold, `api.ts`, `/q/[accessCode]` claim + redirect        |
+| #29 | Task 10.3         | `hermes-cursor-2` | `/b/[publicSlug]` board view, add/remove, confirm dialog, activity list |
 
 ## Delivered Routes
 

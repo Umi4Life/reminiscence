@@ -17,7 +17,7 @@
 
 ## Progress Status
 
-_Last updated: 2026-06-14 after PR #23 merge._
+_Last updated: 2026-06-14 after PR #25–#26 merge._
 
 | Phase                                               | Status      | Evidence   |
 | --------------------------------------------------- | ----------- | ---------- |
@@ -30,6 +30,7 @@ _Last updated: 2026-06-14 after PR #23 merge._
 | Phase 6: QR/Access Credential System                | ✅ Complete | PR #16–#18 |
 | Phase 7: Public Board Read and Mutation API         | ✅ Complete | PR #20–#21 |
 | Phase 8: Rate Limiting and Audit Metadata           | ✅ Complete | PR #22–#23 |
+| Phase 9: QR Rendering and Display-State API         | ✅ Complete | PR #25–#26 |
 
 Phase 4 completion notes:
 
@@ -69,6 +70,14 @@ Phase 8 completion notes:
 - PR #23 added Postgres-backed rate limiting for public mutations via `rate_limit_buckets`.
 - Merged-main verification: `bun run check` passed with 183 tests; `TODO(phase-8)` cleared.
 - Completion journal: `docs/plans/2026-06-14-phase-8-completion-journal.md`.
+
+Phase 9 completion notes:
+
+- PR #25 added `GET /api/qr/:accessCode.svg` with public access URL encoding and `qrcode` SVG rendering.
+- PR #26 added `GET /api/display/:displayToken/state` with `displayVersion`, `publicAccess`, and ETag/304 polling support; migration `0003` adds `access_code_ciphertext`.
+- Merged-main verification: `bun run check` passed with 220 tests (includes interim security-hardening patches on `main`).
+- Postgres smoke: migrate → seed → credential rotate → QR SVG 200; display device → state 200 with `qrSvgUrl`; ETag → 304.
+- Completion journal: `docs/plans/2026-06-14-phase-9-completion-journal.md`.
 
 ---
 

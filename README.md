@@ -87,7 +87,7 @@ Required core variables include:
 
 ## Current status
 
-Phases 0–6 of the MVP implementation plan are complete on `main`.
+Phases 0–8 of the MVP implementation plan are complete on `main`.
 
 Current backend capabilities include:
 
@@ -96,8 +96,11 @@ Current backend capabilities include:
 - board open/close/reset operations
 - board access-credential rotation
 - public access claim and mutation-session cookies
+- public board read, events, and add/remove mutations
+- HMAC audit metadata on public mutations
+- Postgres-backed public mutation rate limiting
 
-Merged-main quality gate (2026-06-14): `bun run check` — 158 tests passing.
+Merged-main quality gate (2026-06-14): `bun run check` — 183 tests passing.
 
 See the MVP plan for the build sequence:
 

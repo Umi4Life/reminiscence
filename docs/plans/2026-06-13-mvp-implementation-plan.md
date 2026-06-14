@@ -17,7 +17,7 @@
 
 ## Progress Status
 
-_Last updated: 2026-06-14 after PR #18 merge._
+_Last updated: 2026-06-14 after PR #23 merge._
 
 | Phase                                               | Status      | Evidence   |
 | --------------------------------------------------- | ----------- | ---------- |
@@ -28,6 +28,8 @@ _Last updated: 2026-06-14 after PR #18 merge._
 | Phase 4: Seed Data and Admin Auth                   | ✅ Complete | PR #8–#10  |
 | Phase 5: Admin Board Management API                 | ✅ Complete | PR #12–#14 |
 | Phase 6: QR/Access Credential System                | ✅ Complete | PR #16–#18 |
+| Phase 7: Public Board Read and Mutation API         | ✅ Complete | PR #20–#21 |
+| Phase 8: Rate Limiting and Audit Metadata           | ✅ Complete | PR #22–#23 |
 
 Phase 4 completion notes:
 
@@ -53,6 +55,20 @@ Phase 6 completion notes:
 - PR #18 added public access claim/logout routes and DB-backed public mutation sessions.
 - Merged-main verification: `bun run check` passed with 158 tests.
 - Completion journal: `docs/plans/2026-06-14-phase-6-completion-journal.md`.
+
+Phase 7 completion notes:
+
+- PR #20 added public board read and events endpoints plus `boards/` module cleanup.
+- PR #21 added public add/remove queue mutations with session gating and board locking.
+- Merged-main verification: `bun run check` passed with 174 tests.
+- Completion journal: `docs/plans/2026-06-14-phase-7-completion-journal.md`.
+
+Phase 8 completion notes:
+
+- PR #22 added HMAC audit metadata helpers (`buildMutationRequestMeta`) wired into public mutation routes.
+- PR #23 added Postgres-backed rate limiting for public mutations via `rate_limit_buckets`.
+- Merged-main verification: `bun run check` passed with 183 tests; `TODO(phase-8)` cleared.
+- Completion journal: `docs/plans/2026-06-14-phase-8-completion-journal.md`.
 
 ---
 
@@ -969,6 +985,8 @@ git commit -m "feat: add public access claim flow"
 
 ## Phase 7: Public Board Read and Mutation API
 
+**Status:** ✅ Complete. Implemented across PR #20–#21 and verified on merged `main` with unit tests, typecheck, and full `bun run check`.
+
 ### Task 7.1: Implement public board read endpoint
 
 **Objective:** Allow participants to view a board without accounts.
@@ -1155,6 +1173,8 @@ git commit -m "feat: add public queue remove mutation"
 ---
 
 ## Phase 8: Rate Limiting and Audit Metadata
+
+**Status:** ✅ Complete. Implemented across PR #22–#23 and verified on merged `main` with 183 tests passing and `TODO(phase-8)` cleared.
 
 ### Task 8.1: Implement HMAC audit metadata helpers
 

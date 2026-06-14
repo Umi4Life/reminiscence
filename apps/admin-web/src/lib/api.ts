@@ -164,3 +164,61 @@ export async function rotateAccessCredential(
     fetchFn,
   );
 }
+
+export interface PublicQueueEntry {
+  id: string;
+  displayName: string;
+  position: number;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface PublicBoardData {
+  organization: { id: string; slug: string; name: string };
+  venue: { id: string; slug: string; name: string };
+  board: {
+    publicSlug: string;
+    name: string;
+    description: string | null;
+    status: "open" | "closed";
+    displayVersion: number;
+    updatedAt: string;
+  };
+  queue: PublicQueueEntry[];
+}
+
+export interface PublicBoardEvent {
+  id: string;
+  type: string;
+  publicMessage: string;
+  displayNameSnapshot: string | null;
+  createdAt: string;
+}
+
+export async function getPublicBoard(
+  publicSlug: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ board: PublicBoardData } | null> {
+  try {
+    return await apiFetch<{ board: PublicBoardData }>(
+      `/public/boards/${encodeURIComponent(publicSlug)}`,
+      { method: "GET" },
+      fetchFn,
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function getPublicBoardEvents(
+  publicSlug: string,
+  limit?: number,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ events: PublicBoardEvent[] }> {
+  const query = limit !== undefined ? `?limit=${limit}` : "";
+  return apiFetch<{ events: PublicBoardEvent[] }>(
+    `/public/boards/${encodeURIComponent(publicSlug)}/events${query}`,
+    { method: "GET" },
+    fetchFn,
+  );
+}

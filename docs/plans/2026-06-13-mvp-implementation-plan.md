@@ -17,7 +17,7 @@
 
 ## Progress Status
 
-_Last updated: 2026-06-13 after PR #14 merge._
+_Last updated: 2026-06-14 after PR #18 merge._
 
 | Phase                                               | Status      | Evidence   |
 | --------------------------------------------------- | ----------- | ---------- |
@@ -27,6 +27,7 @@ _Last updated: 2026-06-13 after PR #14 merge._
 | Phase 3: API Foundation                             | ✅ Complete | PR #7      |
 | Phase 4: Seed Data and Admin Auth                   | ✅ Complete | PR #8–#10  |
 | Phase 5: Admin Board Management API                 | ✅ Complete | PR #12–#14 |
+| Phase 6: QR/Access Credential System                | ✅ Complete | PR #16–#18 |
 
 Phase 4 completion notes:
 
@@ -44,6 +45,14 @@ Phase 5 completion notes:
 - Merged-main verification: `bun run check` passed with 141 tests.
 - Real Postgres smoke passed for migrate → seed → login → board list → close/open/reset → board create → board patch → database event/board-state verification.
 - Completion journal: `docs/plans/2026-06-13-phase-5-completion-journal.md`.
+
+Phase 6 completion notes:
+
+- PR #16 added reusable opaque token helpers and refactored session-token helpers to use them.
+- PR #17 added admin board access-credential rotation with transactional credential/session revocation and `access_rotated` events.
+- PR #18 added public access claim/logout routes and DB-backed public mutation sessions.
+- Merged-main verification: `bun run check` passed with 158 tests.
+- Completion journal: `docs/plans/2026-06-14-phase-6-completion-journal.md`.
 
 ---
 

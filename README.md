@@ -87,7 +87,17 @@ Required core variables include:
 
 ## Current status
 
-The repository foundation is in progress. The current implementation includes workspace scaffolding, quality commands, shared environment parsing, and domain validation helpers.
+Phases 0–6 of the MVP implementation plan are complete on `main`.
+
+Current backend capabilities include:
+
+- admin session auth and RBAC
+- admin organization/venue/board management
+- board open/close/reset operations
+- board access-credential rotation
+- public access claim and mutation-session cookies
+
+Merged-main quality gate (2026-06-14): `bun run check` — 158 tests passing.
 
 See the MVP plan for the build sequence:
 

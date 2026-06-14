@@ -85,6 +85,34 @@ Required core variables include:
 - `ADMIN_SESSION_TTL_DAYS`
 - `PUBLIC_MUTATION_SESSION_TTL_HOURS`
 
+## Deploy with Docker
+
+Queue Reminiscence ships as three containerized apps (`qr-api`, `qr-admin`, `qr-display`). Two compose files are provided (from PR #40):
+
+| File | Use case |
+|------|----------|
+| `docker-compose.yml` | Local dev — full stack including Postgres (`qr-postgres` on :5432) |
+| `docker-compose.homelab.yml` | Homelab — app-only overlay for external Postgres + Traefik |
+
+Quick start (local dev):
+
+```bash
+cp .env.example .env
+# Set SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, and rotate the three secret values
+docker compose up --build -d
+bun run --cwd packages/db db:migrate
+bun run --cwd packages/db db:seed
+```
+
+Open `http://localhost:3001` and sign in with your seed admin credentials.
+
+For a homelab deployment with external Postgres and Traefik, set `TRUST_PROXY=true` in `.env`.
+
+Full guides:
+
+- [Local development quickstart](docs/deployment/local-development.md)
+- [Homelab deployment with Traefik + external Postgres](docs/deployment/homelab-traefik-postgres.md)
+
 ## Current status
 
 Phases 0–12 of the MVP implementation plan are complete on `main`. Next up: Phase 13 (Docker / homelab deployment) and Phase 14 (hardening / review).
@@ -148,3 +176,8 @@ See the MVP plan for the build sequence:
 
 - [`docs/product/queue-reminiscence-prd.md`](docs/product/queue-reminiscence-prd.md)
 - [`docs/architecture/mvp-technical-architecture.md`](docs/architecture/mvp-technical-architecture.md)
+
+## Deployment docs
+
+- [`docs/deployment/local-development.md`](docs/deployment/local-development.md)
+- [`docs/deployment/homelab-traefik-postgres.md`](docs/deployment/homelab-traefik-postgres.md)

@@ -10,12 +10,14 @@ import {
 } from "./admin/board-management";
 import { createDbBoardAccessService, type BoardAccessService } from "./access/board-access";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
+import { createDbPublicSessionService, type PublicSessionService } from "./auth/public-sessions";
 import { ApiError } from "./http/errors";
 import { apiFailure } from "./http/response";
 import { adminAuthRoutes } from "./routes/admin-auth";
 import { adminBoardsRoutes } from "./routes/admin-boards";
 import { adminOrganizationsRoutes } from "./routes/admin-organizations";
 import { adminVenuesRoutes } from "./routes/admin-venues";
+import { publicAccessRoutes } from "./routes/public-access";
 import { healthRoutes, isDatabaseReachable } from "./routes/health";
 
 export interface AppDeps {
@@ -25,6 +27,7 @@ export interface AppDeps {
   adminAuthService?: AdminAuthService;
   boardManagementService?: BoardManagementService;
   boardAccessService?: BoardAccessService;
+  publicSessionService?: PublicSessionService;
 }
 
 function loadAppConfig(): AppConfig {
@@ -48,6 +51,8 @@ export function createApp(deps: AppDeps = {}) {
   const adminAuthService = deps.adminAuthService ?? createDbAdminAuthService(db, config);
   const boardManagementService = deps.boardManagementService ?? createDbBoardManagementService(db);
   const boardAccessService = deps.boardAccessService ?? createDbBoardAccessService(db, config);
+  const publicSessionService =
+    deps.publicSessionService ?? createDbPublicSessionService(db, config);
 
   const adminRouteDeps = {
     authService: adminAuthService,
@@ -75,7 +80,8 @@ export function createApp(deps: AppDeps = {}) {
     .use(adminAuthRoutes({ authService: adminAuthService, config }))
     .use(adminOrganizationsRoutes(adminRouteDeps))
     .use(adminVenuesRoutes(adminRouteDeps))
-    .use(adminBoardsRoutes(adminRouteDeps));
+    .use(adminBoardsRoutes(adminRouteDeps))
+    .use(publicAccessRoutes({ config, publicSessionService }));
 }
 
 export function createTestApp(deps: AppDeps = {}) {

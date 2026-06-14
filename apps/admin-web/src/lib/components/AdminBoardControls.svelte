@@ -8,6 +8,7 @@
     type RotateResult,
   } from "$lib/api";
   import ConfirmDialog from "./ConfirmDialog.svelte";
+  import { copyTextToClipboard } from "$lib/copy-to-clipboard";
   import { PUBLIC_APP_URL } from "$lib/env";
 
   let {
@@ -23,6 +24,17 @@
   let busy = $state(false);
   let error = $state<string | null>(null);
   let rotateResult = $state<RotateResult | null>(null);
+  let copyFeedback = $state<string | null>(null);
+  let copyFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function showCopyFeedback(message: string) {
+    copyFeedback = message;
+    if (copyFeedbackTimer) clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = setTimeout(() => {
+      copyFeedback = null;
+      copyFeedbackTimer = null;
+    }, 2000);
+  }
 
   type PendingConfirm = {
     message: string;
@@ -99,12 +111,43 @@
 
   function copyPublicUrl() {
     const url = `${PUBLIC_APP_URL}/b/${board.publicSlug}`;
-    navigator.clipboard.writeText(url);
+    showCopyFeedback(
+      copyTextToClipboard(url) ? "Public URL copied" : "Copy failed — select the URL manually",
+    );
   }
 
   function copyAccessUrl() {
-    if (rotateResult) {
-      navigator.clipboard.writeText(rotateResult.credential.accessUrl);
+    if (!rotateResult) return;
+    showCopyFeedback(
+      copyTextToClipboard(rotateResult.credential.accessUrl)
+        ? "Access URL copied"
+        : "Copy failed — select the URL above",
+    );
+  }
+
+  function accessCodeFromUrl(accessUrl: string): string | null {
+    const qIndex = accessUrl.indexOf("/q/");
+    if (qIndex === -1) return null;
+
+    let segment = accessUrl.slice(qIndex + 3);
+    const hashIdx = segment.indexOf("#");
+    if (hashIdx !== -1) segment = segment.slice(0, hashIdx);
+    const queryIdx = segment.indexOf("?");
+    if (queryIdx !== -1) segment = segment.slice(0, queryIdx);
+
+    const code = segment.split("/")[0];
+    return code || null;
+  }
+
+  let rotateAccessCode = $derived(
+    rotateResult
+      ? accessCodeFromUrl(rotateResult.credential.accessUrl)
+      : null,
+  );
+
+  function openQrInNewTab() {
+    if (rotateAccessCode) {
+      window.open(`/api/qr/${rotateAccessCode}.svg`, "_blank");
     }
   }
 </script>
@@ -114,6 +157,10 @@
 
   {#if error}
     <div class="error-box">{error}</div>
+  {/if}
+
+  {#if copyFeedback}
+    <div class="copy-feedback" role="status">{copyFeedback}</div>
   {/if}
 
   <div class="controls">
@@ -144,6 +191,35 @@
     <div class="rotate-result">
       <p class="rotate-label">New access URL <span class="one-time">(shown once)</span></p>
       <p class="rotate-url">{rotateResult.credential.accessUrl}</p>
+      {#if rotateAccessCode}
+        <img
+          class="rotate-qr"
+          src="/api/qr/{rotateAccessCode}.svg"
+          alt="Queue access QR"
+          width="200"
+          height="200"
+        />
+        <div class="rotate-qr-actions">
+          <button
+            type="button"
+            class="btn btn-secondary rotate-qr-btn"
+            onclick={openQrInNewTab}
+          >
+            Open QR in new tab
+          </button>
+          <a
+            class="btn btn-secondary rotate-qr-btn"
+            href="/api/qr/{rotateAccessCode}.svg"
+            download="queue-access-qr.svg"
+          >
+            Download SVG
+          </a>
+        </div>
+        <p class="rotate-qr-help">
+          Display or print this QR for visitors. The previous QR stops working
+          immediately.
+        </p>
+      {/if}
       <p class="rotate-hint">Preview: <code>{rotateResult.credential.tokenPreview}</code></p>
       <button class="btn btn-secondary copy-access-btn" onclick={copyAccessUrl}>
         Copy access URL
@@ -183,6 +259,16 @@
     border: 1px solid #fca5a5;
     border-radius: 0.375rem;
     color: #991b1b;
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .copy-feedback {
+    background: #ecfdf5;
+    border: 1px solid #6ee7b7;
+    border-radius: 0.375rem;
+    color: #065f46;
     font-size: 0.875rem;
     padding: 0.5rem 0.75rem;
     margin-bottom: 0.75rem;
@@ -262,6 +348,34 @@
     word-break: break-all;
     margin-bottom: 0.25rem;
     font-family: monospace;
+  }
+
+  .rotate-qr {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0.75rem auto 0;
+  }
+
+  .rotate-qr-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+  }
+
+  .rotate-qr-help {
+    font-size: 0.8125rem;
+    color: #1e40af;
+    margin: 0 0 0.75rem;
+    text-align: center;
+  }
+
+  .rotate-qr-btn {
+    font-size: 0.8125rem;
+    padding: 0.375rem 0.75rem;
+    text-decoration: none;
+    display: inline-block;
   }
 
   .rotate-hint {

@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 
 import { parseCreateBoardBody, parsePatchBoardBody } from "../admin/board-input";
 import type { BoardManagementService } from "../admin/board-management";
+import type { BoardAccessService } from "../access/board-access";
 import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { forbiddenError, notFoundError, validationError } from "../http/errors";
@@ -10,6 +11,7 @@ import { apiSuccess } from "../http/response";
 export interface AdminBoardsRouteDeps {
   authService: AdminAuthService;
   boardManagementService: BoardManagementService;
+  boardAccessService: BoardAccessService;
 }
 
 function conflictMessage(field: "slug" | "publicSlug"): string {
@@ -126,5 +128,19 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
       runBoardOperationRoute(deps, request, params.boardId, (service, rbac, adminUserId, boardId) =>
         service.resetBoard(rbac, adminUserId, boardId),
       ),
-    );
+    )
+    .post("/api/admin/boards/:boardId/access-credentials/rotate", async ({ request, params }) => {
+      const session = await requireAdminSession(deps.authService, request.headers);
+      const result = await deps.boardAccessService.rotateBoardAccessCredential(
+        { memberships: session.memberships },
+        session.admin.id,
+        params.boardId,
+      );
+
+      if (result.status === "not_found") {
+        throw notFoundError();
+      }
+
+      return apiSuccess({ board: result.board, credential: result.credential });
+    });
 }

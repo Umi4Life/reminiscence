@@ -8,6 +8,7 @@ import {
   createDbBoardManagementService,
   type BoardManagementService,
 } from "./admin/board-management";
+import { createDbBoardAccessService, type BoardAccessService } from "./access/board-access";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
 import { ApiError } from "./http/errors";
 import { apiFailure } from "./http/response";
@@ -23,6 +24,7 @@ export interface AppDeps {
   checkDatabase?: () => Promise<boolean>;
   adminAuthService?: AdminAuthService;
   boardManagementService?: BoardManagementService;
+  boardAccessService?: BoardAccessService;
 }
 
 function loadAppConfig(): AppConfig {
@@ -45,10 +47,12 @@ export function createApp(deps: AppDeps = {}) {
     });
   const adminAuthService = deps.adminAuthService ?? createDbAdminAuthService(db, config);
   const boardManagementService = deps.boardManagementService ?? createDbBoardManagementService(db);
+  const boardAccessService = deps.boardAccessService ?? createDbBoardAccessService(db, config);
 
   const adminRouteDeps = {
     authService: adminAuthService,
     boardManagementService,
+    boardAccessService,
   };
 
   return new Elysia({ name: "queue-reminiscence-api" })

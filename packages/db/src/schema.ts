@@ -281,6 +281,7 @@ export const boardAccessCredentials = pgTable(
     revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
     createdByAdminUserId: uuid("created_by_admin_user_id"),
     revokedByAdminUserId: uuid("revoked_by_admin_user_id"),
+    accessCodeCiphertext: text("access_code_ciphertext"), // nullable AES-GCM blob, base64url
   },
   (table) => [
     unique("board_access_credentials_token_hash_unique").on(table.tokenHash),

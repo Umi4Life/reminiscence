@@ -7,3 +7,4 @@ postgres-data/
 .env
 .env.*
 bun.lock
+*.svelte

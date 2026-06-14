@@ -1,12 +1,25 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { login } from "$lib/api";
+
   let email = $state("");
   let password = $state("");
   let error = $state<string | null>(null);
+  let busy = $state(false);
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
+    if (busy) return;
     error = null;
-    // Worker B wires the full auth flow.
+    busy = true;
+    try {
+      await login(email, password);
+      await goto("/");
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Invalid email or password.";
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
@@ -21,7 +34,7 @@
     <form onsubmit={handleSubmit}>
       <label>
         Email
-        <input type="email" name="email" bind:value={email} autocomplete="email" required />
+        <input type="email" name="email" bind:value={email} autocomplete="email" required disabled={busy} />
       </label>
       <label>
         Password
@@ -31,9 +44,12 @@
           bind:value={password}
           autocomplete="current-password"
           required
+          disabled={busy}
         />
       </label>
-      <button type="submit">Sign in</button>
+      <button type="submit" disabled={busy}>
+        {busy ? "Signing in…" : "Sign in"}
+      </button>
     </form>
   </div>
 </main>
@@ -89,6 +105,11 @@
     outline-offset: 1px;
   }
 
+  input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   button {
     background: #2563eb;
     color: #fff;
@@ -101,8 +122,13 @@
     margin-top: 0.5rem;
   }
 
-  button:hover {
+  button:hover:not(:disabled) {
     background: #1d4ed8;
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .error {

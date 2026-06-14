@@ -2,6 +2,9 @@ import type { BoardData, BoardEvent } from "$lib/api";
 import { getBoard, getBoardEvents } from "$lib/api";
 import type { PageLoad } from "./$types";
 
+// Board mutation access depends on the HttpOnly API session cookie in the browser.
+export const ssr = false;
+
 export const load: PageLoad = async ({ params, fetch }) => {
   let board: BoardData | null = null;
   let events: BoardEvent[] = [];

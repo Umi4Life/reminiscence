@@ -14,6 +14,7 @@ import {
   unauthorizedError,
   validationError,
 } from "../http/errors";
+import type { RateLimiter } from "../rate-limit/rate-limiter";
 import { derivePositions } from "./read";
 
 export interface MutationRequestMeta {
@@ -134,12 +135,32 @@ export function createDbQueueMutationService(
   db: Database,
   _config: AppConfig,
   publicSessionService: PublicSessionService,
+  rateLimiter: RateLimiter,
 ): QueueMutationService {
   return {
     async addEntry(publicSlug, sessionToken, displayName, requestMeta) {
-      // TODO(phase-8): apply rate limits
-
       const session = await resolveSessionForBoard(publicSessionService, publicSlug, sessionToken);
+      const boardId = session.board.id;
+      const sessionId = session.session.id;
+      await rateLimiter.checkAndIncrement({
+        scope: "add_session_1m",
+        bucketKey: `${sessionId}:${boardId}`,
+        windowSeconds: 60,
+        maxCount: 3,
+      });
+      await rateLimiter.checkAndIncrement({
+        scope: "add_session_10m",
+        bucketKey: `${sessionId}:${boardId}`,
+        windowSeconds: 600,
+        maxCount: 10,
+      });
+      await rateLimiter.checkAndIncrement({
+        scope: "board_actions",
+        bucketKey: `board:${boardId}`,
+        windowSeconds: 60,
+        maxCount: 30,
+      });
+
       const validatedName = validateDisplayName(displayName);
 
       if (!validatedName.ok) {
@@ -210,9 +231,27 @@ export function createDbQueueMutationService(
     },
 
     async removeEntry(publicSlug, sessionToken, entryId, requestMeta) {
-      // TODO(phase-8): apply rate limits
-
       const session = await resolveSessionForBoard(publicSessionService, publicSlug, sessionToken);
+      const boardId = session.board.id;
+      const sessionId = session.session.id;
+      await rateLimiter.checkAndIncrement({
+        scope: "remove_session_1m",
+        bucketKey: `${sessionId}:${boardId}`,
+        windowSeconds: 60,
+        maxCount: 5,
+      });
+      await rateLimiter.checkAndIncrement({
+        scope: "remove_session_10m",
+        bucketKey: `${sessionId}:${boardId}`,
+        windowSeconds: 600,
+        maxCount: 20,
+      });
+      await rateLimiter.checkAndIncrement({
+        scope: "board_actions",
+        bucketKey: `board:${boardId}`,
+        windowSeconds: 60,
+        maxCount: 30,
+      });
 
       return db.transaction(async (tx) => {
         const board = await lockBoardRow(tx, session.board.id);

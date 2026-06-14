@@ -1,4 +1,14 @@
 import type { AppConfig } from "@queue-reminiscence/config";
+import { createDb, type Database } from "@queue-reminiscence/db";
+
+export function getTestDb(): Database | null {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    return null;
+  }
+
+  return createDb(databaseUrl);
+}
 
 export const testAppConfig: AppConfig = {
   databaseUrl: "postgres://test:test@127.0.0.1:1/test",

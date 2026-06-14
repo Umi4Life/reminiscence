@@ -14,6 +14,7 @@ import { createDbPublicSessionService, type PublicSessionService } from "./auth/
 import { ApiError } from "./http/errors";
 import { apiFailure } from "./http/response";
 import { createDbPublicBoardReadService, type PublicBoardReadService } from "./queue/read";
+import { createDbRateLimiter } from "./rate-limit/rate-limiter";
 import { createDbQueueMutationService, type QueueMutationService } from "./queue/mutations";
 import { adminAuthRoutes } from "./routes/admin-auth";
 import { adminBoardsRoutes } from "./routes/admin-boards";
@@ -60,8 +61,10 @@ export function createApp(deps: AppDeps = {}) {
     deps.publicSessionService ?? createDbPublicSessionService(db, config);
   const publicBoardReadService =
     deps.publicBoardReadService ?? createDbPublicBoardReadService(db, config, publicSessionService);
+  const rateLimiter = createDbRateLimiter(db);
   const queueMutationService =
-    deps.queueMutationService ?? createDbQueueMutationService(db, config, publicSessionService);
+    deps.queueMutationService ??
+    createDbQueueMutationService(db, config, publicSessionService, rateLimiter);
 
   const adminRouteDeps = {
     authService: adminAuthService,

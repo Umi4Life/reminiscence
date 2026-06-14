@@ -1,0 +1,1 @@
+ALTER TABLE "board_access_credentials" ADD COLUMN "access_code_ciphertext" text;

@@ -15,19 +15,19 @@ Test count moved from 183 → 203 (20 new tests covering all patched surfaces).
 
 ## Findings and Patches
 
-| # | Finding | Severity | Files changed |
-|---|---------|----------|---------------|
-| 1 | Admin login brute-force / credential stuffing | HIGH | `routes/admin-auth.ts` |
-| 2 | CORS layer missing (cookie auth makes this critical) | HIGH | `http/cors.ts` (new), `app.ts` |
-| 3 | `/claim` unthrottled; no IP-hash tier on add/remove | MEDIUM | `routes/public-access.ts`, `queue/mutations.ts` |
-| 4 | User-enumeration via login timing (no dummy hash) | MEDIUM | `auth/admin-sessions.ts` |
-| 5 | No Origin check on admin mutations (CSRF depth) | MEDIUM | `http/csrf.ts` (new), `app.ts` |
-| 6 | `SESSION_SECRET` wired but not used (domain separation) | LOW | `auth/admin-sessions.ts` |
-| 7 | Placeholder secrets accepted in production | LOW | `packages/config/src/env.ts` |
-| 8 | `token_preview` exposes suffix as well as prefix | LOW | `security/tokens.ts` |
-| 9 | `rate_limit_buckets` table grows unbounded (no GC) | LOW | `rate-limit/rate-limiter.ts`, `index.ts` |
-| 10 | 500 errors swallowed silently (no log) | LOW | `app.ts` |
-| 11 | XFF leftmost read (client-controlled behind Traefik) | LOW | `public/audit-metadata.ts` |
+| #   | Finding                                                 | Severity | Files changed                                   |
+| --- | ------------------------------------------------------- | -------- | ----------------------------------------------- |
+| 1   | Admin login brute-force / credential stuffing           | HIGH     | `routes/admin-auth.ts`                          |
+| 2   | CORS layer missing (cookie auth makes this critical)    | HIGH     | `http/cors.ts` (new), `app.ts`                  |
+| 3   | `/claim` unthrottled; no IP-hash tier on add/remove     | MEDIUM   | `routes/public-access.ts`, `queue/mutations.ts` |
+| 4   | User-enumeration via login timing (no dummy hash)       | MEDIUM   | `auth/admin-sessions.ts`                        |
+| 5   | No Origin check on admin mutations (CSRF depth)         | MEDIUM   | `http/csrf.ts` (new), `app.ts`                  |
+| 6   | `SESSION_SECRET` wired but not used (domain separation) | LOW      | `auth/admin-sessions.ts`                        |
+| 7   | Placeholder secrets accepted in production              | LOW      | `packages/config/src/env.ts`                    |
+| 8   | `token_preview` exposes suffix as well as prefix        | LOW      | `security/tokens.ts`                            |
+| 9   | `rate_limit_buckets` table grows unbounded (no GC)      | LOW      | `rate-limit/rate-limiter.ts`, `index.ts`        |
+| 10  | 500 errors swallowed silently (no log)                  | LOW      | `app.ts`                                        |
+| 11  | XFF leftmost read (client-controlled behind Traefik)    | LOW      | `public/audit-metadata.ts`                      |
 
 ## Key Design Decisions
 
@@ -45,6 +45,7 @@ used by both the login throttle and the claim throttle. XFF now reads the **righ
 entry (real IP behind a single trusted Traefik hop); leftmost is client-controllable.
 
 **Domain-separated secrets** — three secrets now serve distinct purposes:
+
 - `SESSION_SECRET` — HMAC for admin session tokens
 - `TOKEN_HMAC_SECRET` — HMAC for access credentials and public session tokens
 - `RATE_LIMIT_HMAC_SECRET` — HMAC for IP/UA hashes in audit metadata and rate-limit keys
@@ -60,17 +61,20 @@ and test environments are unchanged.
 ## Potential Conflicts with Future Phases
 
 ### Phase 9 (QR + display-state API) — Low risk
+
 No overlap. The new endpoints are read-only or use separate session types. Ensure any
 new mutation route under `/api/public/` threads `requestMeta` through so IP-hash rate
 limits apply correctly.
 
 ### Phase 10–11 (Web clients) — Requires env config
+
 The CORS allowlist is built from `PUBLIC_APP_URL` and `ADMIN_APP_URL`. Both values must
 be set correctly in each deployment environment's `.env`. Browsers will reject
 cross-origin API calls if the origin doesn't match — this will appear as a CORS error
 in the browser console, not an API error. Verify in dev before shipping the web clients.
 
 ### Phase 12–13 (Additional admin routes) — Low risk
+
 Any new admin mutation route under `/api/admin/**` automatically inherits the CSRF gate
 in `onRequest`. No per-route changes needed. New read-only (`GET`) admin routes are not
 affected.
@@ -79,7 +83,9 @@ New route factories that extend `AdminAuthRouteDeps` or `PublicAccessRouteDeps` 
 include `rateLimiter: RateLimiter` in their deps — both interfaces now require it.
 
 ### Phase 14 (MVP Hardening and Review) — Resolved
+
 Most of the Phase 14 hardening checklist items are now complete ahead of schedule:
+
 - §11.1 CSRF defense-in-depth ✅
 - §12 CORS / credentials header ✅
 - §16 IP-hash rate-limit tier ✅

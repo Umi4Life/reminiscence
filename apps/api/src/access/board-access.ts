@@ -10,7 +10,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { assertCanOperateBoard, type AdminRbacContext } from "../auth/rbac";
 import { toBoardSummaryFromRow, type BoardSummary } from "../admin/board-management";
-import { loadBoardWithResourceContext, lockBoardRow } from "../admin/board-context";
+import { loadBoardWithResourceContext, lockBoardRow } from "../boards/board-context";
 import { createTokenPreview, generateOpaqueToken, hashOpaqueToken } from "../security/tokens";
 
 export interface RotatedBoardAccessCredential {

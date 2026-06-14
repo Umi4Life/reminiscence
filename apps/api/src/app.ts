@@ -10,6 +10,7 @@ import {
 } from "./admin/board-management";
 import { createDbBoardAccessService, type BoardAccessService } from "./access/board-access";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
+import { createDbPublicBoardReadService, type PublicBoardReadService } from "./public/board-read";
 import { createDbPublicSessionService, type PublicSessionService } from "./auth/public-sessions";
 import { ApiError } from "./http/errors";
 import { apiFailure } from "./http/response";
@@ -18,6 +19,7 @@ import { adminBoardsRoutes } from "./routes/admin-boards";
 import { adminOrganizationsRoutes } from "./routes/admin-organizations";
 import { adminVenuesRoutes } from "./routes/admin-venues";
 import { publicAccessRoutes } from "./routes/public-access";
+import { publicBoardsRoutes } from "./routes/public-boards";
 import { healthRoutes, isDatabaseReachable } from "./routes/health";
 
 export interface AppDeps {
@@ -28,6 +30,7 @@ export interface AppDeps {
   boardManagementService?: BoardManagementService;
   boardAccessService?: BoardAccessService;
   publicSessionService?: PublicSessionService;
+  publicBoardReadService?: PublicBoardReadService;
 }
 
 function loadAppConfig(): AppConfig {
@@ -53,6 +56,8 @@ export function createApp(deps: AppDeps = {}) {
   const boardAccessService = deps.boardAccessService ?? createDbBoardAccessService(db, config);
   const publicSessionService =
     deps.publicSessionService ?? createDbPublicSessionService(db, config);
+  const publicBoardReadService =
+    deps.publicBoardReadService ?? createDbPublicBoardReadService(db, config);
 
   const adminRouteDeps = {
     authService: adminAuthService,
@@ -81,7 +86,8 @@ export function createApp(deps: AppDeps = {}) {
     .use(adminOrganizationsRoutes(adminRouteDeps))
     .use(adminVenuesRoutes(adminRouteDeps))
     .use(adminBoardsRoutes(adminRouteDeps))
-    .use(publicAccessRoutes({ config, publicSessionService }));
+    .use(publicAccessRoutes({ config, publicSessionService }))
+    .use(publicBoardsRoutes({ config, publicBoardReadService, publicSessionService }));
 }
 
 export function createTestApp(deps: AppDeps = {}) {

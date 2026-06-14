@@ -48,12 +48,15 @@
   </header>
 
   <main class="content">
-    <h2 class="section-title">Boards</h2>
+    <div class="section-header">
+      <h2 class="section-title">Boards</h2>
+      <a href="/boards/new" class="new-board-btn">New board</a>
+    </div>
 
     {#if boards.length === 0}
       <div class="empty-state">
         <p class="empty-title">No boards yet</p>
-        <p class="empty-desc">You don't have access to any boards. Contact your organisation owner to be added.</p>
+        <p class="empty-desc">Create your first board to get started.</p>
       </div>
     {:else}
       <div class="board-list">
@@ -141,13 +144,38 @@
     padding: 1.5rem 1rem;
   }
 
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
   .section-title {
     font-size: 0.875rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: #374151;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
+  }
+
+  .new-board-btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .new-board-btn:hover {
+    background: #1d4ed8;
+    text-decoration: none;
   }
 
   .empty-state {

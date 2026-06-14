@@ -1,4 +1,10 @@
-import { getBoard, getPublicBoardEvents, type BoardSummary, type PublicBoardEvent } from "$lib/api";
+import {
+  getBoard,
+  getPublicBoardEvents,
+  listVenues,
+  type BoardSummary,
+  type PublicBoardEvent,
+} from "$lib/api";
 import type { PageLoad } from "./$types";
 
 export const ssr = false;
@@ -6,6 +12,7 @@ export const ssr = false;
 export const load: PageLoad = async ({ params, fetch }) => {
   let board: BoardSummary | null = null;
   let events: PublicBoardEvent[] = [];
+  let venueName: string | null = null;
 
   try {
     const result = await getBoard(params.boardId, fetch);
@@ -16,6 +23,14 @@ export const load: PageLoad = async ({ params, fetch }) => {
 
   if (board) {
     try {
+      const venuesResult = await listVenues(fetch);
+      const venue = venuesResult.venues.find((v) => v.id === board!.venueId);
+      venueName = venue?.name ?? null;
+    } catch {
+      // venue name unavailable
+    }
+
+    try {
       const eventsResult = await getPublicBoardEvents(board.publicSlug, 20, fetch);
       events = eventsResult.events;
     } catch {
@@ -23,5 +38,5 @@ export const load: PageLoad = async ({ params, fetch }) => {
     }
   }
 
-  return { board, events };
+  return { board, events, venueName };
 };

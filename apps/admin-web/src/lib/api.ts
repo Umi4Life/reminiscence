@@ -32,6 +32,32 @@ export interface MeData {
   memberships: AdminMembership[];
 }
 
+export interface VenueSummary {
+  id: string;
+  organizationId: string;
+  slug: string;
+  name: string;
+  timezone: string;
+  address: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBoardInput {
+  venueId: string;
+  slug: string;
+  publicSlug: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface PatchBoardInput {
+  slug?: string;
+  publicSlug?: string;
+  name?: string;
+  description?: string | null;
+}
+
 export interface BoardSummary {
   id: string;
   venueId: string;
@@ -88,6 +114,14 @@ function jsonPost(body: unknown): RequestInit {
   };
 }
 
+function jsonPatch(body: unknown): RequestInit {
+  return {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  };
+}
+
 export async function login(
   email: string,
   password: string,
@@ -108,6 +142,31 @@ export async function listBoards(
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ boards: BoardSummary[] }> {
   return apiFetch<{ boards: BoardSummary[] }>("/admin/boards", { method: "GET" }, fetchFn);
+}
+
+export async function listVenues(
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ venues: VenueSummary[] }> {
+  return apiFetch<{ venues: VenueSummary[] }>("/admin/venues", { method: "GET" }, fetchFn);
+}
+
+export async function createBoard(
+  body: CreateBoardInput,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ board: BoardSummary }> {
+  return apiFetch<{ board: BoardSummary }>("/admin/boards", jsonPost(body), fetchFn);
+}
+
+export async function updateBoard(
+  boardId: string,
+  body: PatchBoardInput,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ board: BoardSummary }> {
+  return apiFetch<{ board: BoardSummary }>(
+    `/admin/boards/${encodeURIComponent(boardId)}`,
+    jsonPatch(body),
+    fetchFn,
+  );
 }
 
 export async function getBoard(

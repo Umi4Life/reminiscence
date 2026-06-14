@@ -3,7 +3,13 @@ import { describe, expect, test } from "bun:test";
 import type { PublicSessionService } from "../src/auth/public-sessions";
 import { PUBLIC_BOARD_SESSION_COOKIE_NAME } from "../src/auth/public-sessions";
 import { createTestApp } from "../src/app";
+import { rateLimitedError } from "../src/http/errors";
+import type { RateLimiter } from "../src/rate-limit/rate-limiter";
 import { testAppConfig } from "./test-config";
+
+function createPermissiveRateLimiter(): RateLimiter {
+  return { async checkAndIncrement() {} };
+}
 
 const board = { id: "board-1", publicSlug: "demo-queue" };
 
@@ -64,10 +70,14 @@ function createFakePublicSessionService(
   };
 }
 
-function createApp(publicSessionService = createFakePublicSessionService()) {
+function createApp(
+  publicSessionService = createFakePublicSessionService(),
+  rateLimiter: RateLimiter = createPermissiveRateLimiter(),
+) {
   return createTestApp({
     config: testAppConfig,
     publicSessionService,
+    rateLimiter,
     checkDatabase: async () => true,
   });
 }
@@ -112,6 +122,28 @@ describe("public access routes", () => {
     expect(cookie.includes("SameSite=Lax")).toBe(true);
     expect(cookie.includes("Path=/")).toBe(true);
     expect(cookie.includes("Secure")).toBe(false);
+  });
+
+  test("claim is rejected with 429 when the per-IP limit is exceeded", async () => {
+    const blockingRateLimiter: RateLimiter = {
+      async checkAndIncrement() {
+        throw rateLimitedError();
+      },
+    };
+    const publicSessionService = createFakePublicSessionService();
+    const app = createApp(publicSessionService, blockingRateLimiter);
+
+    const response = await app.handle(
+      new Request("http://localhost/api/public/access/claim", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ accessCode: "valid-access-code" }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    // The limiter must run before the credential is consumed.
+    expect(publicSessionService.claimCalls).toEqual([]);
   });
 
   test("expired credential returns view-only board info without session cookie", async () => {

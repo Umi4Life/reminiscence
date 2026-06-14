@@ -27,14 +27,16 @@ describe("buildMutationRequestMeta", () => {
     expect(meta.ipHash).toBe(null);
   });
 
-  test("uses first IP from X-Forwarded-For when multiple are present", () => {
-    const single = createRequest({ "x-forwarded-for": "1.2.3.4" });
+  test("uses the rightmost IP from X-Forwarded-For when multiple are present", () => {
+    // Behind a single trusted proxy hop, the rightmost entry is the real client
+    // IP the proxy observed; entries to the left are client-supplied/spoofable.
+    const rightmost = createRequest({ "x-forwarded-for": "5.6.7.8" });
     const multiple = createRequest({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
 
-    const singleMeta = buildMutationRequestMeta(single, testAppConfig);
+    const rightmostMeta = buildMutationRequestMeta(rightmost, testAppConfig);
     const multipleMeta = buildMutationRequestMeta(multiple, testAppConfig);
 
-    expect(multipleMeta.ipHash).toBe(singleMeta.ipHash);
+    expect(multipleMeta.ipHash).toBe(rightmostMeta.ipHash);
   });
 
   test("hashes user-agent when present", () => {

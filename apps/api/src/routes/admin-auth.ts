@@ -6,10 +6,34 @@ import { ADMIN_SESSION_COOKIE_NAME } from "../auth/admin-sessions";
 import { readAdminSessionToken } from "../auth/admin-route-auth";
 import { unauthorizedError, validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
+import { hashClientIp } from "../public/audit-metadata";
+import type { RateLimiter } from "../rate-limit/rate-limiter";
+import { hashOpaqueToken } from "../security/tokens";
 
 export interface AdminAuthRouteDeps {
   authService: AdminAuthService;
   config: AppConfig;
+  rateLimiter: RateLimiter;
+}
+
+// Throttle admin login to blunt brute-force and credential-stuffing. We limit
+// per source IP (catches stuffing across many emails) and per target email
+// (catches focused brute force). Keys are HMAC-hashed so the rate-limit table
+// never stores raw IPs or emails.
+const LOGIN_IP_LIMIT = { scope: "admin_login_ip", windowSeconds: 300, maxCount: 10 } as const;
+const LOGIN_EMAIL_LIMIT = { scope: "admin_login_email", windowSeconds: 900, maxCount: 8 } as const;
+
+async function enforceLoginRateLimit(
+  rateLimiter: RateLimiter,
+  config: AppConfig,
+  request: Request,
+  email: string,
+): Promise<void> {
+  const ipKey = hashClientIp(request, config) ?? "unknown";
+  const emailKey = hashOpaqueToken(email.trim().toLowerCase(), config.rateLimitHmacSecret);
+
+  await rateLimiter.checkAndIncrement({ ...LOGIN_IP_LIMIT, bucketKey: ipKey });
+  await rateLimiter.checkAndIncrement({ ...LOGIN_EMAIL_LIMIT, bucketKey: emailKey });
 }
 
 interface LoginBody {
@@ -77,8 +101,9 @@ function serializeLoginResult(result: LoginResult): AdminSessionContext {
 
 export function adminAuthRoutes(deps: AdminAuthRouteDeps) {
   return new Elysia({ name: "admin-auth-routes" })
-    .post("/api/admin/auth/login", async ({ body, set }) => {
+    .post("/api/admin/auth/login", async ({ body, request, set }) => {
       const credentials = parseLoginBody(body);
+      await enforceLoginRateLimit(deps.rateLimiter, deps.config, request, credentials.email);
       const result = await deps.authService.login(credentials.email, credentials.password);
 
       set.headers["set-cookie"] = serializeSessionCookie(

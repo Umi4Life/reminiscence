@@ -1,6 +1,8 @@
 import { parseEnv } from "@queue-reminiscence/config/env";
+import { createDb } from "@queue-reminiscence/db";
 
 import { createApp } from "./app";
+import { createDbRateLimiter, startRateLimitSweeper } from "./rate-limit/rate-limiter";
 
 const runtimeGlobal = globalThis as typeof globalThis & {
   Bun?: { env: Record<string, string | undefined> };
@@ -8,7 +10,11 @@ const runtimeGlobal = globalThis as typeof globalThis & {
 };
 
 const config = parseEnv(runtimeGlobal.Bun?.env ?? runtimeGlobal.process?.env ?? {});
-const app = createApp({ config });
+const db = createDb(config.databaseUrl);
+const rateLimiter = createDbRateLimiter(db);
+const app = createApp({ config, db, rateLimiter });
+
+startRateLimitSweeper(rateLimiter);
 
 app.listen({
   hostname: "0.0.0.0",

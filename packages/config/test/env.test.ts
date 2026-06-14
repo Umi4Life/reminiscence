@@ -85,6 +85,44 @@ describe("parseEnv", () => {
     );
   });
 
+  test("rejects placeholder secrets when NODE_ENV=production", () => {
+    expect(() => parseEnv({ ...validEnv, NODE_ENV: "production" })).toThrow(
+      /SESSION_SECRET must be a strong secret/,
+    );
+  });
+
+  test("rejects too-short secrets when NODE_ENV=production", () => {
+    const strong = "x".repeat(40);
+    expect(() =>
+      parseEnv({
+        ...validEnv,
+        NODE_ENV: "production",
+        SESSION_SECRET: strong,
+        TOKEN_HMAC_SECRET: strong,
+        RATE_LIMIT_HMAC_SECRET: "too-short",
+      }),
+    ).toThrow(/RATE_LIMIT_HMAC_SECRET must be a strong secret/);
+  });
+
+  test("accepts strong distinct secrets when NODE_ENV=production", () => {
+    const config = parseEnv({
+      ...validEnv,
+      NODE_ENV: "production",
+      SESSION_SECRET: "a".repeat(40),
+      TOKEN_HMAC_SECRET: "b".repeat(40),
+      RATE_LIMIT_HMAC_SECRET: "c".repeat(40),
+    });
+
+    expect(config.sessionSecret).toBe("a".repeat(40));
+  });
+
+  test("does not enforce secret strength outside production", () => {
+    // Placeholder secrets are accepted outside production; a config is returned.
+    expect(parseEnv({ ...validEnv, NODE_ENV: "development" }).sessionSecret).toBe(
+      validEnv.SESSION_SECRET,
+    );
+  });
+
   test("rejects unsafe URL schemes", () => {
     expect(() => parseEnv({ ...validEnv, PUBLIC_APP_URL: "javascript:alert(1)" })).toThrow(
       /PUBLIC_APP_URL must use http or https/,

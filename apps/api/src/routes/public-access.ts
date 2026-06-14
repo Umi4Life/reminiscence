@@ -8,10 +8,29 @@ import {
 } from "../auth/public-sessions";
 import { validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
+import { hashClientIp } from "../public/audit-metadata";
+import type { RateLimiter } from "../rate-limit/rate-limiter";
 
 export interface PublicAccessRouteDeps {
   config: AppConfig;
   publicSessionService: PublicSessionService;
+  rateLimiter: RateLimiter;
+}
+
+// Throttle access claims per source IP. Without this, anyone holding a valid
+// access code could mint unlimited fresh public sessions, each with a clean
+// per-session mutation budget — making the per-session limits decorative.
+const CLAIM_IP_LIMIT = { scope: "claim_ip_1m", windowSeconds: 60, maxCount: 10 } as const;
+const CLAIM_IP_BURST = { scope: "claim_ip_10m", windowSeconds: 600, maxCount: 40 } as const;
+
+async function enforceClaimRateLimit(
+  rateLimiter: RateLimiter,
+  config: AppConfig,
+  request: Request,
+): Promise<void> {
+  const ipKey = hashClientIp(request, config) ?? "unknown";
+  await rateLimiter.checkAndIncrement({ ...CLAIM_IP_LIMIT, bucketKey: ipKey });
+  await rateLimiter.checkAndIncrement({ ...CLAIM_IP_BURST, bucketKey: ipKey });
 }
 
 interface ClaimBody {
@@ -116,7 +135,8 @@ function responseForClaim(result: ClaimPublicAccessResult) {
 
 export function publicAccessRoutes(deps: PublicAccessRouteDeps) {
   return new Elysia({ name: "public-access-routes" })
-    .post("/api/public/access/claim", async ({ body, set }) => {
+    .post("/api/public/access/claim", async ({ body, request, set }) => {
+      await enforceClaimRateLimit(deps.rateLimiter, deps.config, request);
       const accessCode = parseClaimBody(body);
       const result = await deps.publicSessionService.claimAccess(accessCode);
 

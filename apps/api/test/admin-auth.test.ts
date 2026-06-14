@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import type { AdminAuthService, LoginResult } from "../src/auth/admin-sessions";
 import { ADMIN_SESSION_COOKIE_NAME } from "../src/auth/admin-sessions";
-import { unauthorizedError } from "../src/http/errors";
+import { rateLimitedError, unauthorizedError } from "../src/http/errors";
+import type { RateLimiter } from "../src/rate-limit/rate-limiter";
 import { createTestApp } from "../src/app";
 import { testAppConfig } from "./test-config";
 
@@ -58,10 +59,31 @@ function createFakeAuthService(): AdminAuthService & { loggedOutTokens: string[]
   };
 }
 
-function createAppWithFakeAuth(authService = createFakeAuthService()) {
+function createPermissiveRateLimiter(): RateLimiter {
+  return {
+    async checkAndIncrement() {},
+  };
+}
+
+/** A limiter that rejects as soon as the given scope is checked. */
+function createBlockingRateLimiter(blockedScope: string): RateLimiter {
+  return {
+    async checkAndIncrement({ scope }) {
+      if (scope === blockedScope) {
+        throw rateLimitedError();
+      }
+    },
+  };
+}
+
+function createAppWithFakeAuth(
+  authService = createFakeAuthService(),
+  rateLimiter: RateLimiter = createPermissiveRateLimiter(),
+) {
   return createTestApp({
     config: testAppConfig,
     adminAuthService: authService,
+    rateLimiter,
     checkDatabase: async () => true,
   });
 }
@@ -115,6 +137,44 @@ describe("admin auth routes", () => {
       ok: false,
       error: { code: "unauthorized", message: "Invalid email or password." },
     });
+  });
+
+  test("login is rejected with 429 when the per-IP limit is exceeded", async () => {
+    const app = createAppWithFakeAuth(
+      createFakeAuthService(),
+      createBlockingRateLimiter("admin_login_ip"),
+    );
+
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "demo@local.test", password: "correct-password" }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { code: "rate_limited", message: "Too many requests. Try again shortly." },
+    });
+  });
+
+  test("login is rejected with 429 when the per-email limit is exceeded", async () => {
+    const app = createAppWithFakeAuth(
+      createFakeAuthService(),
+      createBlockingRateLimiter("admin_login_email"),
+    );
+
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "demo@local.test", password: "correct-password" }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
   });
 
   test("disabled admin users cannot authenticate", async () => {

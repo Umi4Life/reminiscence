@@ -45,12 +45,14 @@ describe("opaque token helpers", () => {
     expect(hashOpaqueToken(token, "other-secret") === baseline).toBe(false);
   });
 
-  test("createTokenPreview is short and does not expose the full token", () => {
+  test("createTokenPreview exposes only a short prefix of the token", () => {
     const token = "abcdefghijklmnopqrstuvwxyz0123456789";
     const preview = createTokenPreview(token);
 
-    expect(preview).toBe("abcdef…456789");
+    expect(preview).toBe("abcdefgh…");
     expect(preview.length <= 32).toBe(true);
     expect(preview === token).toBe(false);
+    // The trailing characters of the token must never appear in the preview.
+    expect(preview.includes("456789")).toBe(false);
   });
 });

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { rateLimitBuckets } from "@queue-reminiscence/db/schema";
+import { eq } from "drizzle-orm";
 
 import { rateLimitedError } from "../src/http/errors";
 import { createDbRateLimiter } from "../src/rate-limit/rate-limiter";
@@ -140,5 +142,29 @@ describe("createDbRateLimiter", () => {
       windowSeconds: 1,
       maxCount,
     });
+  });
+
+  test("deleteExpired removes expired buckets and keeps current ones", async () => {
+    const scope = "test_gc";
+    const expiredKey = crypto.randomUUID();
+    const liveKey = crypto.randomUUID();
+    const past = new Date(Date.now() - 60_000);
+    const future = new Date(Date.now() + 60_000);
+
+    await testDb.insert(rateLimitBuckets).values([
+      { scope, bucketKey: expiredKey, windowStart: past, count: 1, expiresAt: past },
+      { scope, bucketKey: liveKey, windowStart: future, count: 1, expiresAt: future },
+    ]);
+
+    await rateLimiter.deleteExpired?.();
+
+    const remaining = await testDb
+      .select()
+      .from(rateLimitBuckets)
+      .where(eq(rateLimitBuckets.scope, scope));
+    const keys = remaining.map((row) => row.bucketKey);
+
+    expect(keys.includes(expiredKey)).toBe(false);
+    expect(keys.includes(liveKey)).toBe(true);
   });
 });

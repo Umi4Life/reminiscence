@@ -36,8 +36,20 @@ export class ConfigError extends Error {
   }
 }
 
+const SECRET_ENV_NAMES = [
+  "SESSION_SECRET",
+  "TOKEN_HMAC_SECRET",
+  "RATE_LIMIT_HMAC_SECRET",
+] as const satisfies readonly RequiredEnvName[];
+
+const MIN_PRODUCTION_SECRET_LENGTH = 32;
+
+// Example/placeholder values that must never be accepted in production.
+const PLACEHOLDER_SECRETS = new Set(["change-me", "change-me-in-development"]);
+
 export function parseEnv(input: Record<string, string | undefined>): AppConfig {
   const values = readRequiredValues(input);
+  assertStrongProductionSecrets(values, input.NODE_ENV === "production");
 
   return {
     databaseUrl: parseDatabaseUrl(values.DATABASE_URL),
@@ -76,6 +88,30 @@ function readRequiredValues(
 
 function isBlank(value: string | undefined): boolean {
   return value === undefined || value.trim().length === 0;
+}
+
+/**
+ * In production, presence is not enough: reject secrets that are placeholders or
+ * too short to be high-entropy. Kept production-only so local dev, tests, and
+ * seeding can keep using the documented `change-me` placeholders.
+ */
+function assertStrongProductionSecrets(
+  values: Record<RequiredEnvName, string>,
+  isProduction: boolean,
+): void {
+  if (!isProduction) {
+    return;
+  }
+
+  for (const name of SECRET_ENV_NAMES) {
+    const value = values[name];
+
+    if (PLACEHOLDER_SECRETS.has(value) || value.length < MIN_PRODUCTION_SECRET_LENGTH) {
+      throw new ConfigError(
+        `${name} must be a strong secret (at least ${MIN_PRODUCTION_SECRET_LENGTH} characters and not a placeholder) when NODE_ENV=production`,
+      );
+    }
+  }
 }
 
 function parseDatabaseUrl(value: string): string {

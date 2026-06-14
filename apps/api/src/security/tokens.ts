@@ -15,10 +15,14 @@ export function hashOpaqueToken(token: string, secret: string): string {
   return createHmac("sha256", secret).update(token).digest("base64url");
 }
 
-export function createTokenPreview(token: string): string {
-  if (token.length <= 12) {
-    return `${token.slice(0, 4)}…`;
-  }
+const TOKEN_PREVIEW_PREFIX_LENGTH = 8;
 
-  return `${token.slice(0, 6)}…${token.slice(-6)}`;
+/**
+ * Builds a short, non-sensitive preview for staff disambiguation. Prefix-only
+ * by design: exposing the trailing characters as well would reveal both ends of
+ * the raw token for no operational benefit. Never reconstructable into the
+ * token (256-bit), but prefix-only is strictly safer than prefix+suffix.
+ */
+export function createTokenPreview(token: string): string {
+  return `${token.slice(0, TOKEN_PREVIEW_PREFIX_LENGTH)}…`;
 }

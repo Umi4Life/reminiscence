@@ -154,6 +154,14 @@ export function createDbQueueMutationService(
         windowSeconds: 600,
         maxCount: 10,
       });
+      // IP-scoped tier: caps adds per source IP per board across sessions, so
+      // re-claiming a fresh session does not reset the budget.
+      await rateLimiter.checkAndIncrement({
+        scope: "add_ip_10m",
+        bucketKey: `${requestMeta.ipHash ?? "unknown"}:${boardId}`,
+        windowSeconds: 600,
+        maxCount: 20,
+      });
       await rateLimiter.checkAndIncrement({
         scope: "board_actions",
         bucketKey: `board:${boardId}`,
@@ -245,6 +253,14 @@ export function createDbQueueMutationService(
         bucketKey: `${sessionId}:${boardId}`,
         windowSeconds: 600,
         maxCount: 20,
+      });
+      // IP-scoped tier: caps removals per source IP per board across sessions,
+      // so re-claiming a fresh session does not reset the budget.
+      await rateLimiter.checkAndIncrement({
+        scope: "remove_ip_10m",
+        bucketKey: `${requestMeta.ipHash ?? "unknown"}:${boardId}`,
+        windowSeconds: 600,
+        maxCount: 40,
       });
       await rateLimiter.checkAndIncrement({
         scope: "board_actions",

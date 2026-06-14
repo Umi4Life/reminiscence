@@ -4,8 +4,25 @@ import { adminMemberships, adminSessions, adminUsers } from "@queue-reminiscence
 import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { unauthorizedError } from "../http/errors";
-import { verifyPassword } from "./passwords";
+import { hashPassword, verifyPassword } from "./passwords";
 import { generateSessionToken, hashSessionToken } from "../security/session-tokens";
+
+/**
+ * A real Argon2id hash used to equalize login timing when the email does not
+ * resolve to an active admin. Without this, a missing email returns before any
+ * hashing work while a real email pays the full Argon2id cost, leaking account
+ * existence by timing. We verify the supplied password against this dummy hash
+ * so both paths perform equivalent work. Computed once and cached.
+ */
+let dummyPasswordHashPromise: Promise<string> | null = null;
+
+function getDummyPasswordHash(): Promise<string> {
+  if (!dummyPasswordHashPromise) {
+    dummyPasswordHashPromise = hashPassword("timing-equalization-placeholder");
+  }
+
+  return dummyPasswordHashPromise;
+}
 
 export const ADMIN_SESSION_COOKIE_NAME = "qr_admin_session";
 
@@ -95,6 +112,10 @@ export function createDbAdminAuthService(db: Database, config: AppConfig): Admin
       const admin = await loadActiveAdminByEmail(email);
 
       if (!admin) {
+        // Perform an equivalent Argon2id verification against a dummy hash so
+        // that a missing account is indistinguishable by timing from a wrong
+        // password on a real account.
+        await verifyPassword(password, await getDummyPasswordHash());
         throw unauthorizedError("Invalid email or password.");
       }
 
@@ -105,7 +126,7 @@ export function createDbAdminAuthService(db: Database, config: AppConfig): Admin
       }
 
       const token = generateSessionToken();
-      const tokenHash = hashSessionToken(token, config.tokenHmacSecret);
+      const tokenHash = hashSessionToken(token, config.sessionSecret);
       const now = new Date();
       const expiresAt = addDays(now, config.adminSessionTtlDays);
 
@@ -127,7 +148,7 @@ export function createDbAdminAuthService(db: Database, config: AppConfig): Admin
     },
 
     async resolve(token: string): Promise<AdminSessionContext> {
-      const tokenHash = hashSessionToken(token, config.tokenHmacSecret);
+      const tokenHash = hashSessionToken(token, config.sessionSecret);
       const now = new Date();
 
       const [row] = await db
@@ -160,7 +181,7 @@ export function createDbAdminAuthService(db: Database, config: AppConfig): Admin
     },
 
     async logout(token: string): Promise<void> {
-      const tokenHash = hashSessionToken(token, config.tokenHmacSecret);
+      const tokenHash = hashSessionToken(token, config.sessionSecret);
 
       await db
         .update(adminSessions)

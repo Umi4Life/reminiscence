@@ -63,5 +63,13 @@ export function qrRoutes(deps: QrRouteDeps) {
 
       return svg;
     },
+    {
+      detail: {
+        summary: "Render QR code as SVG",
+        description:
+          "Generates an SVG QR code for the given access code. Returns 404 if the credential is inactive or expired.\n\nRate limit: 30 per min per IP.",
+        tags: ["QR"],
+      },
+    },
   );
 }

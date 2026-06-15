@@ -209,7 +209,7 @@ describe("admin auth routes", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       ok: false,
-      error: { code: "validation_error", message: "Email and password are required." },
+      error: { code: "validation_error", message: "Invalid request format." },
     });
   });
 

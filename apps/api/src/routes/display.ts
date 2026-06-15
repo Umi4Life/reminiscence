@@ -12,6 +12,7 @@ import {
   type DisplayStateService,
 } from "../display/display-state";
 import { forbiddenError, unauthorizedError } from "../http/errors";
+import { DisplayTokenParams } from "../http/schemas";
 import { apiSuccess } from "../http/response";
 
 export interface DisplayRouteDeps {
@@ -55,6 +56,15 @@ export function displayRoutes(deps: DisplayRouteDeps) {
       }
 
       return apiSuccess({ state: payload });
+    },
+    {
+      params: DisplayTokenParams,
+      detail: {
+        summary: "Display device state",
+        description:
+          "Returns board state optimized for e-ink or kiosk display devices. Supports ETag/If-None-Match for efficient polling. Auth via displayToken in URL path. The publicAccess field is only populated when the device has canViewPublicAccessPayload permission.",
+        tags: ["Display"],
+      },
     },
   );
 }

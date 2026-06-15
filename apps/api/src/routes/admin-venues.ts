@@ -21,5 +21,13 @@ export function adminVenuesRoutes(deps: AdminVenuesRouteDeps) {
 
       return apiSuccess({ venues });
     },
+    {
+      detail: {
+        summary: "List accessible venues",
+        description: "Returns venues the authenticated admin can access, filtered by RBAC role.",
+        tags: ["Admin Venues"],
+        security: [{ AdminSession: [] }],
+      },
+    },
   );
 }

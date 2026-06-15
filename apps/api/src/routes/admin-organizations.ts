@@ -21,5 +21,13 @@ export function adminOrganizationsRoutes(deps: AdminOrganizationsRouteDeps) {
 
       return apiSuccess({ organizations });
     },
+    {
+      detail: {
+        summary: "List accessible organizations",
+        description: "Returns all organizations the authenticated admin has any membership in.",
+        tags: ["Admin Organizations"],
+        security: [{ AdminSession: [] }],
+      },
+    },
   );
 }

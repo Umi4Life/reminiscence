@@ -18,7 +18,13 @@ export async function isDatabaseReachable(db: Database): Promise<boolean> {
 
 export function healthRoutes(deps: HealthRouteDeps = {}) {
   return new Elysia({ name: "health-routes" })
-    .get("/healthz", () => ({ ok: true }))
+    .get("/healthz", () => ({ ok: true }), {
+      detail: {
+        summary: "Liveness probe",
+        description: "Returns { ok: true } if the process is running. No DB check.",
+        tags: ["Health"],
+      },
+    })
     .get("/readyz", async ({ set }) => {
       const checkDatabase = deps.checkDatabase ?? (async () => false);
       const ready = await checkDatabase();
@@ -29,5 +35,11 @@ export function healthRoutes(deps: HealthRouteDeps = {}) {
       }
 
       return { ok: true };
+    }, {
+      detail: {
+        summary: "Readiness probe",
+        description: "Returns { ok: true } only when the database is reachable.",
+        tags: ["Health"],
+      },
     });
 }

@@ -6,6 +6,7 @@ import {
   type ClaimPublicAccessResult,
   type PublicSessionService,
 } from "../auth/public-sessions";
+import { ClaimAccessBody } from "../http/schemas";
 import { validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
 import { hashClientIp } from "../public/audit-metadata";
@@ -31,10 +32,6 @@ async function enforceClaimRateLimit(
   const ipKey = hashClientIp(request, config) ?? "unknown";
   await rateLimiter.checkAndIncrement({ ...CLAIM_IP_LIMIT, bucketKey: ipKey });
   await rateLimiter.checkAndIncrement({ ...CLAIM_IP_BURST, bucketKey: ipKey });
-}
-
-interface ClaimBody {
-  accessCode?: unknown;
 }
 
 function parseCookieHeader(header: string | null): Map<string, string> {
@@ -65,20 +62,6 @@ function parseCookieHeader(header: string | null): Map<string, string> {
 
 export function readPublicBoardSessionToken(headers: Headers): string | undefined {
   return parseCookieHeader(headers.get("cookie")).get(PUBLIC_BOARD_SESSION_COOKIE_NAME);
-}
-
-function parseClaimBody(body: unknown): string {
-  const candidate = body as ClaimBody | null;
-
-  if (
-    !candidate ||
-    typeof candidate.accessCode !== "string" ||
-    candidate.accessCode.trim().length === 0
-  ) {
-    throw validationError("Access code is required.");
-  }
-
-  return candidate.accessCode.trim();
 }
 
 function serializePublicSessionCookie(
@@ -135,29 +118,56 @@ function responseForClaim(result: ClaimPublicAccessResult) {
 
 export function publicAccessRoutes(deps: PublicAccessRouteDeps) {
   return new Elysia({ name: "public-access-routes" })
-    .post("/api/public/access/claim", async ({ body, request, set }) => {
-      await enforceClaimRateLimit(deps.rateLimiter, deps.config, request);
-      const accessCode = parseClaimBody(body);
-      const result = await deps.publicSessionService.claimAccess(accessCode);
+    .post(
+      "/api/public/access/claim",
+      async ({ body, request, set }) => {
+        await enforceClaimRateLimit(deps.rateLimiter, deps.config, request);
+        const accessCode = body.accessCode.trim();
 
-      if (result.status === "claimed") {
-        set.headers["set-cookie"] = serializePublicSessionCookie(
-          result.token,
-          deps.config,
-          result.expiresAt,
-        );
-      }
+        if (accessCode.length === 0) {
+          throw validationError("Access code is required.");
+        }
+        const result = await deps.publicSessionService.claimAccess(accessCode);
 
-      return apiSuccess(responseForClaim(result));
-    })
-    .post("/api/public/access/logout", async ({ request, set }) => {
-      const token = readPublicBoardSessionToken(request.headers);
+        if (result.status === "claimed") {
+          set.headers["set-cookie"] = serializePublicSessionCookie(
+            result.token,
+            deps.config,
+            result.expiresAt,
+          );
+        }
 
-      if (token) {
-        await deps.publicSessionService.logout(token);
-      }
+        return apiSuccess(responseForClaim(result));
+      },
+      {
+        body: ClaimAccessBody,
+        detail: {
+          summary: "Claim public mutation session",
+          description:
+            "Exchange an access code for a public session cookie.\n\nAlways returns HTTP 200. Check data.claimed to determine success.\n\nRate limits: 10 per min per IP; 40 per 10 min per IP.",
+          tags: ["Public Access"],
+        },
+      },
+    )
+    .post(
+      "/api/public/access/logout",
+      async ({ request, set }) => {
+        const token = readPublicBoardSessionToken(request.headers);
 
-      set.headers["set-cookie"] = serializeExpiredPublicSessionCookie(deps.config);
-      return apiSuccess({ loggedOut: true });
-    });
+        if (token) {
+          await deps.publicSessionService.logout(token);
+        }
+
+        set.headers["set-cookie"] = serializeExpiredPublicSessionCookie(deps.config);
+        return apiSuccess({ loggedOut: true });
+      },
+      {
+        detail: {
+          summary: "Revoke public session",
+          description: "Revokes the current public session and clears the session cookie.",
+          tags: ["Public Access"],
+          security: [{ PublicSession: [] }],
+        },
+      },
+    );
 }

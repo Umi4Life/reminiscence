@@ -4,7 +4,8 @@ import { Elysia } from "elysia";
 import type { AdminAuthService, AdminSessionContext, LoginResult } from "../auth/admin-sessions";
 import { ADMIN_SESSION_COOKIE_NAME } from "../auth/admin-sessions";
 import { readAdminSessionToken } from "../auth/admin-route-auth";
-import { unauthorizedError, validationError } from "../http/errors";
+import { unauthorizedError } from "../http/errors";
+import { LoginBody } from "../http/schemas";
 import { apiSuccess } from "../http/response";
 import { hashClientIp } from "../public/audit-metadata";
 import type { RateLimiter } from "../rate-limit/rate-limiter";
@@ -34,11 +35,6 @@ async function enforceLoginRateLimit(
 
   await rateLimiter.checkAndIncrement({ ...LOGIN_IP_LIMIT, bucketKey: ipKey });
   await rateLimiter.checkAndIncrement({ ...LOGIN_EMAIL_LIMIT, bucketKey: emailKey });
-}
-
-interface LoginBody {
-  email?: unknown;
-  password?: unknown;
 }
 
 function serializeSessionCookie(
@@ -73,25 +69,6 @@ function serializeExpiredSessionCookie(config: AppConfig): string {
   return serializeSessionCookie("", config, new Date(0), 0);
 }
 
-function parseLoginBody(body: unknown): { email: string; password: string } {
-  const candidate = body as LoginBody | null;
-
-  if (
-    !candidate ||
-    typeof candidate.email !== "string" ||
-    typeof candidate.password !== "string" ||
-    candidate.email.trim().length === 0 ||
-    candidate.password.length === 0
-  ) {
-    throw validationError("Email and password are required.");
-  }
-
-  return {
-    email: candidate.email,
-    password: candidate.password,
-  };
-}
-
 function serializeLoginResult(result: LoginResult): AdminSessionContext {
   return {
     admin: result.admin,
@@ -101,38 +78,71 @@ function serializeLoginResult(result: LoginResult): AdminSessionContext {
 
 export function adminAuthRoutes(deps: AdminAuthRouteDeps) {
   return new Elysia({ name: "admin-auth-routes" })
-    .post("/api/admin/auth/login", async ({ body, request, set }) => {
-      const credentials = parseLoginBody(body);
-      await enforceLoginRateLimit(deps.rateLimiter, deps.config, request, credentials.email);
-      const result = await deps.authService.login(credentials.email, credentials.password);
+    .post(
+      "/api/admin/auth/login",
+      async ({ body, request, set }) => {
+        await enforceLoginRateLimit(deps.rateLimiter, deps.config, request, body.email);
+        const result = await deps.authService.login(body.email, body.password);
 
-      set.headers["set-cookie"] = serializeSessionCookie(
-        result.token,
-        deps.config,
-        result.expiresAt,
-      );
+        set.headers["set-cookie"] = serializeSessionCookie(
+          result.token,
+          deps.config,
+          result.expiresAt,
+        );
 
-      return apiSuccess(serializeLoginResult(result));
-    })
-    .post("/api/admin/auth/logout", async ({ request, set }) => {
-      const token = readAdminSessionToken(request.headers);
+        return apiSuccess(serializeLoginResult(result));
+      },
+      {
+        body: LoginBody,
+        detail: {
+          summary: "Admin login",
+          description:
+            "Authenticate with email and password. Sets qr_admin_session HttpOnly cookie on success.\n\nRate limits: 10 attempts per 5 min per IP; 8 per 15 min per email.",
+          tags: ["Admin Auth"],
+        },
+      },
+    )
+    .post(
+      "/api/admin/auth/logout",
+      async ({ request, set }) => {
+        const token = readAdminSessionToken(request.headers);
 
-      if (token) {
-        await deps.authService.logout(token);
-      }
+        if (token) {
+          await deps.authService.logout(token);
+        }
 
-      set.headers["set-cookie"] = serializeExpiredSessionCookie(deps.config);
+        set.headers["set-cookie"] = serializeExpiredSessionCookie(deps.config);
 
-      return apiSuccess({ loggedOut: true });
-    })
-    .get("/api/admin/me", async ({ request }) => {
-      const token = readAdminSessionToken(request.headers);
+        return apiSuccess({ loggedOut: true });
+      },
+      {
+        detail: {
+          summary: "Admin logout",
+          description: "Revokes the current admin session and clears the session cookie.",
+          tags: ["Admin Auth"],
+          security: [{ AdminSession: [] }],
+        },
+      },
+    )
+    .get(
+      "/api/admin/me",
+      async ({ request }) => {
+        const token = readAdminSessionToken(request.headers);
 
-      if (!token) {
-        throw unauthorizedError();
-      }
+        if (!token) {
+          throw unauthorizedError();
+        }
 
-      const context = await deps.authService.resolve(token);
-      return apiSuccess(context);
-    });
+        const context = await deps.authService.resolve(token);
+        return apiSuccess(context);
+      },
+      {
+        detail: {
+          summary: "Current admin context",
+          description: "Returns the identity and membership list for the authenticated admin.",
+          tags: ["Admin Auth"],
+          security: [{ AdminSession: [] }],
+        },
+      },
+    );
 }

@@ -178,9 +178,11 @@ describe("admin board update route", () => {
     });
   });
 
-  test("rejects forbidden patch fields", async () => {
+  test("rejects unknown/forbidden patch fields as empty", async () => {
     const app = createApp([orgOwnerMembership]);
 
+    // Elysia strips unknown fields from the validated body; a patch containing
+    // only unknown fields therefore arrives empty, triggering the empty-patch guard.
     const response = await app.handle(
       patchBoardRequest(BOARD_A1, {
         displayVersion: 99,
@@ -192,7 +194,7 @@ describe("admin board update route", () => {
       ok: false,
       error: {
         code: "validation_error",
-        message: "displayVersion cannot be updated.",
+        message: "At least one board field must be provided.",
       },
     });
   });

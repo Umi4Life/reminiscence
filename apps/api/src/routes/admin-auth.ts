@@ -1,11 +1,10 @@
 import type { AppConfig } from "@queue-reminiscence/config";
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 
 import type { AdminAuthService, AdminSessionContext, LoginResult } from "../auth/admin-sessions";
 import { ADMIN_SESSION_COOKIE_NAME } from "../auth/admin-sessions";
 import { readAdminSessionToken } from "../auth/admin-route-auth";
 import { unauthorizedError } from "../http/errors";
-import { LoginBody } from "../http/schemas";
 import { apiSuccess } from "../http/response";
 import { hashClientIp } from "../public/audit-metadata";
 import type { RateLimiter } from "../rate-limit/rate-limiter";
@@ -93,56 +92,31 @@ export function adminAuthRoutes(deps: AdminAuthRouteDeps) {
         return apiSuccess(serializeLoginResult(result));
       },
       {
-        body: LoginBody,
-        detail: {
-          summary: "Admin login",
-          description:
-            "Authenticate with email and password. Sets qr_admin_session HttpOnly cookie on success.\n\nRate limits: 10 attempts per 5 min per IP; 8 per 15 min per email.",
-          tags: ["Admin Auth"],
-        },
+        body: t.Object({
+          email: t.String({ minLength: 1 }),
+          password: t.String({ minLength: 1 }),
+        }),
       },
     )
-    .post(
-      "/api/admin/auth/logout",
-      async ({ request, set }) => {
-        const token = readAdminSessionToken(request.headers);
+    .post("/api/admin/auth/logout", async ({ request, set }) => {
+      const token = readAdminSessionToken(request.headers);
 
-        if (token) {
-          await deps.authService.logout(token);
-        }
+      if (token) {
+        await deps.authService.logout(token);
+      }
 
-        set.headers["set-cookie"] = serializeExpiredSessionCookie(deps.config);
+      set.headers["set-cookie"] = serializeExpiredSessionCookie(deps.config);
 
-        return apiSuccess({ loggedOut: true });
-      },
-      {
-        detail: {
-          summary: "Admin logout",
-          description: "Revokes the current admin session and clears the session cookie.",
-          tags: ["Admin Auth"],
-          security: [{ AdminSession: [] }],
-        },
-      },
-    )
-    .get(
-      "/api/admin/me",
-      async ({ request }) => {
-        const token = readAdminSessionToken(request.headers);
+      return apiSuccess({ loggedOut: true });
+    })
+    .get("/api/admin/me", async ({ request }) => {
+      const token = readAdminSessionToken(request.headers);
 
-        if (!token) {
-          throw unauthorizedError();
-        }
+      if (!token) {
+        throw unauthorizedError();
+      }
 
-        const context = await deps.authService.resolve(token);
-        return apiSuccess(context);
-      },
-      {
-        detail: {
-          summary: "Current admin context",
-          description: "Returns the identity and membership list for the authenticated admin.",
-          tags: ["Admin Auth"],
-          security: [{ AdminSession: [] }],
-        },
-      },
-    );
+      const context = await deps.authService.resolve(token);
+      return apiSuccess(context);
+    });
 }

@@ -194,7 +194,7 @@ describe("admin board create route", () => {
       ok: false,
       error: {
         code: "validation_error",
-        message: "Invalid request format.",
+        message: "Slug must contain only lowercase URL-safe characters.",
       },
     });
   });

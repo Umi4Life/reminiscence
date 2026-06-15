@@ -207,10 +207,11 @@ describe("admin auth routes", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      ok: false,
-      error: { code: "validation_error", message: "Invalid request format." },
-    });
+    const json = (await response.json()) as { ok: false; error: { code: string; message: string } };
+    expect(json.ok).toBe(false);
+    expect(json.error.code).toBe("validation_error");
+    // message is Elysia's schema summary; just verify it mentions the missing field
+    expect(json.error.message.includes("password")).toBe(true);
   });
 
   test("me returns current admin identity and memberships for a valid session cookie", async () => {

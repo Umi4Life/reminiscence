@@ -1,12 +1,11 @@
 import type { AppConfig } from "@queue-reminiscence/config";
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 
 import {
   PUBLIC_BOARD_SESSION_COOKIE_NAME,
   type ClaimPublicAccessResult,
   type PublicSessionService,
 } from "../auth/public-sessions";
-import { ClaimAccessBody } from "../http/schemas";
 import { validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
 import { hashClientIp } from "../public/audit-metadata";
@@ -123,10 +122,7 @@ export function publicAccessRoutes(deps: PublicAccessRouteDeps) {
       async ({ body, request, set }) => {
         await enforceClaimRateLimit(deps.rateLimiter, deps.config, request);
         const accessCode = body.accessCode.trim();
-
-        if (accessCode.length === 0) {
-          throw validationError("Access code is required.");
-        }
+        if (accessCode.length === 0) throw validationError("Access code is required.");
         const result = await deps.publicSessionService.claimAccess(accessCode);
 
         if (result.status === "claimed") {
@@ -140,34 +136,19 @@ export function publicAccessRoutes(deps: PublicAccessRouteDeps) {
         return apiSuccess(responseForClaim(result));
       },
       {
-        body: ClaimAccessBody,
-        detail: {
-          summary: "Claim public mutation session",
-          description:
-            "Exchange an access code for a public session cookie.\n\nAlways returns HTTP 200. Check data.claimed to determine success.\n\nRate limits: 10 per min per IP; 40 per 10 min per IP.",
-          tags: ["Public Access"],
-        },
+        body: t.Object({
+          accessCode: t.String({ minLength: 1 }),
+        }),
       },
     )
-    .post(
-      "/api/public/access/logout",
-      async ({ request, set }) => {
-        const token = readPublicBoardSessionToken(request.headers);
+    .post("/api/public/access/logout", async ({ request, set }) => {
+      const token = readPublicBoardSessionToken(request.headers);
 
-        if (token) {
-          await deps.publicSessionService.logout(token);
-        }
+      if (token) {
+        await deps.publicSessionService.logout(token);
+      }
 
-        set.headers["set-cookie"] = serializeExpiredPublicSessionCookie(deps.config);
-        return apiSuccess({ loggedOut: true });
-      },
-      {
-        detail: {
-          summary: "Revoke public session",
-          description: "Revokes the current public session and clears the session cookie.",
-          tags: ["Public Access"],
-          security: [{ PublicSession: [] }],
-        },
-      },
-    );
+      set.headers["set-cookie"] = serializeExpiredPublicSessionCookie(deps.config);
+      return apiSuccess({ loggedOut: true });
+    });
 }

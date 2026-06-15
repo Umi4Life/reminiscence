@@ -2,8 +2,7 @@ import type { AppConfig } from "@queue-reminiscence/config";
 import { parseEnv } from "@queue-reminiscence/config/env";
 import type { Database } from "@queue-reminiscence/db";
 import { createDb } from "@queue-reminiscence/db";
-import { openapi } from "@elysia/openapi";
-import { Elysia } from "elysia";
+import { Elysia, ValidationError } from "elysia";
 
 import {
   createDbBoardManagementService,
@@ -33,6 +32,7 @@ import { publicBoardsRoutes } from "./routes/public-boards";
 import { qrRoutes } from "./routes/qr";
 import { healthRoutes, isDatabaseReachable } from "./routes/health";
 import { displayRoutes } from "./routes/display";
+import { docsRoutes } from "./routes/docs";
 import type { DisplayDeviceResolver } from "./display/display-devices";
 import type { DisplayStateService } from "./display/display-state";
 
@@ -133,10 +133,19 @@ export function createApp(deps: AppDeps = {}) {
         return apiFailure(forbiddenError("Cross-origin request rejected."));
       }
     })
-    .onError(({ error, set, code }) => {
-      if (code === "VALIDATION") {
+    .onError(({ error, set }) => {
+      if (error instanceof ValidationError) {
         set.status = 400;
-        return apiFailure(validationError("Invalid request format."));
+        let message = "Request validation failed.";
+        try {
+          const parsed: unknown = JSON.parse(error.message);
+          if (parsed && typeof parsed === "object" && "summary" in parsed) {
+            message = String((parsed as Record<string, unknown>).summary);
+          }
+        } catch {
+          // keep generic fallback
+        }
+        return apiFailure(validationError(message));
       }
 
       if (error instanceof ApiError) {
@@ -157,34 +166,6 @@ export function createApp(deps: AppDeps = {}) {
         },
       };
     })
-    .use(
-      openapi({
-        documentation: {
-          info: {
-            title: "Queue Reminiscence API",
-            description:
-              "Queue management API for arcade venues. Admin sessions use the qr_admin_session cookie; public participant sessions use the qr_public_session cookie.",
-            version: "1.0.0",
-          },
-          components: {
-            securitySchemes: {
-              AdminSession: {
-                type: "apiKey",
-                in: "cookie",
-                name: "qr_admin_session",
-                description: "HttpOnly session cookie set by POST /api/admin/auth/login.",
-              },
-              PublicSession: {
-                type: "apiKey",
-                in: "cookie",
-                name: "qr_public_session",
-                description: "HttpOnly session cookie set by POST /api/public/access/claim.",
-              },
-            },
-          },
-        },
-      }),
-    )
     .use(healthRoutes({ checkDatabase }))
     .use(adminAuthRoutes({ authService: adminAuthService, config, rateLimiter }))
     .use(adminOrganizationsRoutes(adminRouteDeps))
@@ -200,7 +181,8 @@ export function createApp(deps: AppDeps = {}) {
         displayStateService: deps.displayStateService,
       }),
     )
-    .use(qrRoutes({ config, db, rateLimiter }));
+    .use(qrRoutes({ config, db, rateLimiter }))
+    .use(docsRoutes());
 }
 
 export function createTestApp(deps: AppDeps = {}) {

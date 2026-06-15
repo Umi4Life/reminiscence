@@ -17,7 +17,7 @@
 
 ## Progress Status
 
-_Last updated: 2026-06-14 after PR #40–#41 merge (Phase 13)._
+_Last updated: 2026-06-15 after PR #43–#44 merge (Phase 14 — MVP complete)._
 
 | Phase                                               | Status      | Evidence                     |
 | --------------------------------------------------- | ----------- | ---------------------------- |
@@ -35,7 +35,7 @@ _Last updated: 2026-06-14 after PR #40–#41 merge (Phase 13)._
 | Phase 11: Admin Web App                             | ✅ Complete | PR #32–#33, #35–#36          |
 | Phase 12: End-to-End Testing                        | ✅ Complete | PR #34, #37                  |
 | Phase 13: Docker and Homelab Deployment             | ✅ Complete | PR #40 (compose), #41 (docs) |
-| Phase 14: MVP Hardening and Review                  | 🔲 Next     |                              |
+| Phase 14: MVP Hardening and Review                  | ✅ Complete | PR #43–#44                   |
 
 Phase 4 completion notes:
 

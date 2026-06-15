@@ -37,11 +37,11 @@ docs/plans/2026-06-14-phase-13-completion-journal.md  # this file
 
 ## Service Contract
 
-| Service | Port | Container |
-|---------|------|-----------|
-| API | 3002 | `qr-api` |
-| Admin web | 3001 | `qr-admin` |
-| Public/display web | 3000 | `qr-display` |
+| Service                     | Port | Container     |
+| --------------------------- | ---- | ------------- |
+| API                         | 3002 | `qr-api`      |
+| Admin web                   | 3001 | `qr-admin`    |
+| Public/display web          | 3000 | `qr-display`  |
 | Postgres (dev compose only) | 5432 | `qr-postgres` |
 
 ## Key Design Decisions

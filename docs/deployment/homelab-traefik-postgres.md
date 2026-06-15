@@ -12,13 +12,13 @@ This guide covers deploying Queue Reminiscence on a self-hosted Linux machine wi
 
 ## Prerequisites
 
-| Requirement | Notes |
-|-------------|-------|
-| Docker ≥ 24 | With Compose plugin |
-| Traefik ≥ 2.x running on the host | Listening on 80/443, watching `docker` provider |
-| PostgreSQL ≥ 15 on the host or network | Accessible from Docker containers |
-| A dedicated Postgres database and user | See [Database Setup](#database-setup) |
-| DNS records pointing to the three app hostnames | Or wildcard DNS |
+| Requirement                                     | Notes                                           |
+| ----------------------------------------------- | ----------------------------------------------- |
+| Docker ≥ 24                                     | With Compose plugin                             |
+| Traefik ≥ 2.x running on the host               | Listening on 80/443, watching `docker` provider |
+| PostgreSQL ≥ 15 on the host or network          | Accessible from Docker containers               |
+| A dedicated Postgres database and user          | See [Database Setup](#database-setup)           |
+| DNS records pointing to the three app hostnames | Or wildcard DNS                                 |
 
 ---
 
@@ -51,19 +51,19 @@ $EDITOR .env
 
 Key values to set for homelab:
 
-| Variable | Example | Notes |
-|----------|---------|-------|
-| `DATABASE_URL` | `postgres://queue_reminiscence:...@192.168.1.10:5432/queue_reminiscence` | External Postgres |
-| `PUBLIC_APP_URL` | `https://queue.example.com` | Public-facing display app URL |
-| `ADMIN_APP_URL` | `https://queue-admin.example.com` | Admin app URL |
-| `API_PUBLIC_BASE_URL` | `https://queue-api.example.com/api` | Public app → API (or same origin if proxied) |
-| `API_ADMIN_BASE_URL` | `https://queue-api.example.com/api` | Admin app → API |
-| `SESSION_SECRET` | _(generate: `openssl rand -hex 32`)_ | Must be secret and stable |
-| `TOKEN_HMAC_SECRET` | _(generate: `openssl rand -hex 32`)_ | Must be secret and stable |
-| `RATE_LIMIT_HMAC_SECRET` | _(generate: `openssl rand -hex 32`)_ | Must be secret and stable |
-| `TRUST_PROXY` | **`true`** | Required when Traefik terminates TLS |
-| `ADMIN_SESSION_TTL_DAYS` | `14` | Adjust to policy |
-| `PUBLIC_MUTATION_SESSION_TTL_HOURS` | `8` | Adjust to policy |
+| Variable                            | Example                                                                  | Notes                                        |
+| ----------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
+| `DATABASE_URL`                      | `postgres://queue_reminiscence:...@192.168.1.10:5432/queue_reminiscence` | External Postgres                            |
+| `PUBLIC_APP_URL`                    | `https://queue.example.com`                                              | Public-facing display app URL                |
+| `ADMIN_APP_URL`                     | `https://queue-admin.example.com`                                        | Admin app URL                                |
+| `API_PUBLIC_BASE_URL`               | `https://queue-api.example.com/api`                                      | Public app → API (or same origin if proxied) |
+| `API_ADMIN_BASE_URL`                | `https://queue-api.example.com/api`                                      | Admin app → API                              |
+| `SESSION_SECRET`                    | _(generate: `openssl rand -hex 32`)_                                     | Must be secret and stable                    |
+| `TOKEN_HMAC_SECRET`                 | _(generate: `openssl rand -hex 32`)_                                     | Must be secret and stable                    |
+| `RATE_LIMIT_HMAC_SECRET`            | _(generate: `openssl rand -hex 32`)_                                     | Must be secret and stable                    |
+| `TRUST_PROXY`                       | **`true`**                                                               | Required when Traefik terminates TLS         |
+| `ADMIN_SESSION_TTL_DAYS`            | `14`                                                                     | Adjust to policy                             |
+| `PUBLIC_MUTATION_SESSION_TTL_HOURS` | `8`                                                                      | Adjust to policy                             |
 
 > **`TRUST_PROXY=true` is required.** Without it, the API misreads client IP from the `X-Forwarded-For` header injected by Traefik, which breaks rate limiting and audit metadata. Set it only when a trusted proxy (Traefik) sits in front of the API.
 
@@ -83,11 +83,11 @@ docker compose -f docker-compose.homelab.yml up -d
 
 This starts **three app containers only** — no Postgres, no Traefik:
 
-| Container | Internal Port | Description |
-|-----------|---------------|-------------|
-| `qr-api` | 3002 | Bun + Elysia API |
-| `qr-admin` | 3001 | SvelteKit admin web app |
-| `qr-display` | 3000 | SvelteKit public/display web app |
+| Container    | Internal Port | Description                      |
+| ------------ | ------------- | -------------------------------- |
+| `qr-api`     | 3002          | Bun + Elysia API                 |
+| `qr-admin`   | 3001          | SvelteKit admin web app          |
+| `qr-display` | 3000          | SvelteKit public/display web app |
 
 Traefik discovers the containers via Docker labels in `docker-compose.homelab.yml` and routes external traffic to them.
 
@@ -155,11 +155,13 @@ gunzip < backup.sql.gz | psql -U queue_reminiscence -h localhost queue_reminisce
 ## Upgrades
 
 1. Pull the new image (or rebuild locally):
+
    ```bash
    docker compose -f docker-compose.homelab.yml pull
    ```
 
 2. Run migrations before restarting app containers:
+
    ```bash
    docker compose -f docker-compose.homelab.yml run --rm qr-api \
      bun run --cwd /app/packages/db db:migrate
@@ -186,10 +188,10 @@ curl https://queue-api.example.com/readyz
 
 ## Troubleshooting
 
-| Symptom | Likely Cause | Fix |
-|---------|-------------|-----|
-| `TRUST_PROXY` omitted / `false` | Cookies set `Secure` but proxy strips HTTPS; rate-limit IPs wrong | Set `TRUST_PROXY=true` |
-| Admin session cookie lost on page load | `ADMIN_APP_URL` doesn't match the Traefik-routed URL exactly | Match scheme+host exactly |
-| Public board CORS error | `PUBLIC_APP_URL` wrong | Set to the exact public-web origin |
-| DB connection refused | Containers can't reach Postgres host | Use `host-gateway` extra host or correct LAN IP |
-| Traefik `404` for all routes | `traefik.enable=true` label missing or wrong network | Check container labels and shared network |
+| Symptom                                | Likely Cause                                                      | Fix                                             |
+| -------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------- |
+| `TRUST_PROXY` omitted / `false`        | Cookies set `Secure` but proxy strips HTTPS; rate-limit IPs wrong | Set `TRUST_PROXY=true`                          |
+| Admin session cookie lost on page load | `ADMIN_APP_URL` doesn't match the Traefik-routed URL exactly      | Match scheme+host exactly                       |
+| Public board CORS error                | `PUBLIC_APP_URL` wrong                                            | Set to the exact public-web origin              |
+| DB connection refused                  | Containers can't reach Postgres host                              | Use `host-gateway` extra host or correct LAN IP |
+| Traefik `404` for all routes           | `traefik.enable=true` label missing or wrong network              | Check container labels and shared network       |

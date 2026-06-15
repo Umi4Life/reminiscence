@@ -89,10 +89,10 @@ Required core variables include:
 
 Queue Reminiscence ships as three containerized apps (`qr-api`, `qr-admin`, `qr-display`). Two compose files are provided (from PR #40):
 
-| File | Use case |
-|------|----------|
-| `docker-compose.yml` | Local dev — full stack including Postgres (`qr-postgres` on :5432) |
-| `docker-compose.homelab.yml` | Homelab — app-only overlay for external Postgres + Traefik |
+| File                         | Use case                                                           |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `docker-compose.yml`         | Local dev — full stack including Postgres (`qr-postgres` on :5432) |
+| `docker-compose.homelab.yml` | Homelab — app-only overlay for external Postgres + Traefik         |
 
 Quick start (local dev):
 
@@ -115,7 +115,7 @@ Full guides:
 
 ## Current status
 
-Phases 0–13 of the MVP implementation plan are complete on `main`. Next up: **Phase 14** (MVP hardening / review).
+**MVP complete** — Phases 0–14 of the implementation plan are done on `main`.
 
 Current capabilities include:
 
@@ -134,7 +134,7 @@ Current capabilities include:
 - **E2E tests** (Playwright) — MVP critical path via `bun run e2e`
 - **Docker deployment** — `docker-compose.yml` (full dev stack) and `docker-compose.homelab.yml` (app-only overlay for external Postgres + Traefik)
 
-Merged-main quality gate (2026-06-14): `bun run check` — 225 unit tests passing; 6 `createDbRateLimiter` integration tests require local Postgres. `main` @ `5c76c4c` (PR #41).
+Merged-main quality gate (2026-06-15): `bun run check` — 231 unit tests passing (6 `createDbRateLimiter` cases skip when `DATABASE_URL` unset); `bun run e2e` — 10/10 pass.
 
 ### Local three-app dev
 

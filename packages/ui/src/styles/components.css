@@ -1,0 +1,63 @@
+/*
+ * Shared structural component classes for queue-reminiscence frontends.
+ * All colors reference the tokens defined in tokens.css. Component-specific
+ * sizing (button padding, badge padding, card width) stays in each component's
+ * scoped <style> — only the genuinely identical patterns live here.
+ */
+
+/* Surface containers */
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.5rem;
+}
+
+/* Uppercase section heading */
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-strong);
+  margin-bottom: 1rem;
+}
+
+/* Status badge color variants — base .status-badge sizing stays per component */
+.status-open {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.status-closed {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}
+
+/* Inline message boxes */
+.error-box {
+  background: var(--color-error-bg-soft);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-error-text);
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.success-box {
+  background: var(--color-success-bg-soft);
+  border: 1px solid var(--color-success-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-success-text);
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}

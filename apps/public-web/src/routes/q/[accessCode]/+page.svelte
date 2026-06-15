@@ -34,11 +34,8 @@
     padding: 1rem;
   }
 
+  /* .card (box) comes from @queue-reminiscence/ui/components.css */
   .card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 2rem 1.5rem;
     max-width: 480px;
     width: 100%;
     text-align: center;
@@ -47,12 +44,12 @@
   .title {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text);
     margin-bottom: 1rem;
   }
 
   .message {
-    color: #6b7280;
+    color: var(--color-text-muted);
     font-size: 0.9375rem;
     margin-bottom: 0.75rem;
     line-height: 1.6;
@@ -62,16 +59,16 @@
     display: inline-block;
     margin-top: 1.25rem;
     padding: 0.625rem 1.5rem;
-    background: #2563eb;
+    background: var(--color-primary);
     color: #fff;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     font-size: 0.9375rem;
     font-weight: 500;
     text-decoration: none;
   }
 
   .button:hover {
-    background: #1d4ed8;
+    background: var(--color-primary-hover);
     text-decoration: none;
   }
 </style>

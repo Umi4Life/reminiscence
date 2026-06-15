@@ -2,6 +2,12 @@
   "name": "@queue-reminiscence/ui",
   "private": true,
   "type": "module",
+  "exports": {
+    "./tokens.css": "./src/styles/tokens.css",
+    "./base.css": "./src/styles/base.css",
+    "./components.css": "./src/styles/components.css",
+    "./styles.css": "./src/styles/index.css"
+  },
   "scripts": {
     "dev": "echo \"@queue-reminiscence/ui placeholder\""
   }

@@ -40,7 +40,7 @@
 <style>
   .empty {
     text-align: center;
-    color: #6b7280;
+    color: var(--color-text-muted);
     font-size: 0.9375rem;
     padding: 1rem 0;
     line-height: 1.8;
@@ -58,37 +58,37 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.625rem 0.75rem;
-    background: #f9fafb;
-    border-radius: 0.5rem;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
   }
 
   .position {
     min-width: 1.75rem;
     font-size: 0.875rem;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-muted);
     text-align: center;
   }
 
   .name {
     flex: 1;
     font-size: 0.9375rem;
-    color: #111827;
+    color: var(--color-text);
   }
 
   .remove-btn {
     padding: 0.25rem 0.625rem;
     font-size: 0.8125rem;
     font-weight: 500;
-    color: #dc2626;
+    color: var(--color-danger);
     background: none;
-    border: 1px solid #fca5a5;
-    border-radius: 0.375rem;
+    border: 1px solid var(--color-error-border);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     line-height: 1.4;
   }
 
   .remove-btn:hover {
-    background: #fee2e2;
+    background: var(--color-error-bg);
   }
 </style>

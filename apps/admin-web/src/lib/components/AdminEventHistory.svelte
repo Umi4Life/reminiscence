@@ -34,25 +34,10 @@
 </section>
 
 <style>
-  .section {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-  }
-
-  .section-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #374151;
-    margin-bottom: 1rem;
-  }
-
+  /* .section and .section-title come from @queue-reminiscence/ui/components.css. */
   .empty {
     font-size: 0.875rem;
-    color: #9ca3af;
+    color: var(--color-text-faint);
   }
 
   .event-list {
@@ -71,12 +56,12 @@
   }
 
   .event-msg {
-    color: #374151;
+    color: var(--color-text-strong);
     flex: 1;
   }
 
   .event-time {
-    color: #9ca3af;
+    color: var(--color-text-faint);
     white-space: nowrap;
     font-size: 0.8125rem;
   }

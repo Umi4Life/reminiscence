@@ -169,13 +169,15 @@
 </div>
 
 <style>
+  /* .card (box) comes from @queue-reminiscence/ui/components.css; this page
+     overrides only the padding. */
   .page {
     min-height: 100vh;
   }
 
   .header {
-    background: #fff;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
     padding: 1rem;
   }
 
@@ -186,21 +188,21 @@
 
   .back-link {
     font-size: 0.8125rem;
-    color: #6b7280;
+    color: var(--color-text-muted);
     text-decoration: none;
     display: block;
     margin-bottom: 0.375rem;
   }
 
   .back-link:hover {
-    color: #111827;
+    color: var(--color-text);
     text-decoration: underline;
   }
 
   .page-title {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text);
   }
 
   .content {
@@ -210,9 +212,6 @@
   }
 
   .card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
     padding: 1.5rem;
   }
 
@@ -228,13 +227,13 @@
     gap: 0.25rem;
     font-size: 0.875rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text-strong);
   }
 
   .hint {
     font-size: 0.75rem;
     font-weight: 400;
-    color: #6b7280;
+    color: var(--color-text-muted);
   }
 
   .hint.optional {
@@ -244,8 +243,8 @@
   input,
   select,
   textarea {
-    border: 1px solid #d1d5db;
-    border-radius: 0.375rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
     padding: 0.5rem 0.75rem;
     font-size: 1rem;
     width: 100%;
@@ -260,7 +259,7 @@
   input:focus,
   select:focus,
   textarea:focus {
-    outline: 2px solid #2563eb;
+    outline: 2px solid var(--color-primary);
     outline-offset: 1px;
   }
 
@@ -280,10 +279,10 @@
   }
 
   .btn-primary {
-    background: #2563eb;
+    background: var(--color-primary);
     color: #fff;
     border: none;
-    border-radius: 0.375rem;
+    border-radius: var(--radius-sm);
     padding: 0.625rem 1rem;
     font-size: 1rem;
     font-weight: 500;
@@ -291,7 +290,7 @@
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: #1d4ed8;
+    background: var(--color-primary-hover);
   }
 
   .btn-primary:disabled {
@@ -301,20 +300,20 @@
 
   .cancel-link {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: var(--color-text-muted);
     text-decoration: none;
   }
 
   .cancel-link:hover {
-    color: #111827;
+    color: var(--color-text);
     text-decoration: underline;
   }
 
   .error {
-    background: #fef2f2;
-    border: 1px solid #fca5a5;
-    border-radius: 0.375rem;
-    color: #991b1b;
+    background: var(--color-error-bg-soft);
+    border: 1px solid var(--color-error-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-error-text);
     font-size: 0.875rem;
     padding: 0.5rem 0.75rem;
     margin-bottom: 1rem;

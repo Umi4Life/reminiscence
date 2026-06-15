@@ -185,42 +185,8 @@
 {/if}
 
 <style>
-  .section {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-  }
-
-  .section-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #374151;
-    margin-bottom: 1rem;
-  }
-
-  .error-box {
-    background: #fef2f2;
-    border: 1px solid #fca5a5;
-    border-radius: 0.375rem;
-    color: #991b1b;
-    font-size: 0.875rem;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .success-box {
-    background: #ecfdf5;
-    border: 1px solid #6ee7b7;
-    border-radius: 0.375rem;
-    color: #065f46;
-    font-size: 0.875rem;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.75rem;
-  }
-
+  /* .section, .section-title, .error-box, .success-box come from
+     @queue-reminiscence/ui/components.css. */
   form {
     display: flex;
     flex-direction: column;
@@ -236,12 +202,12 @@
   .field-label {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text-strong);
   }
 
   .field-value {
     font-size: 0.9375rem;
-    color: #111827;
+    color: var(--color-text);
     padding: 0.5rem 0;
   }
 
@@ -251,13 +217,13 @@
     gap: 0.25rem;
     font-size: 0.875rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text-strong);
   }
 
   .hint {
     font-size: 0.75rem;
     font-weight: 400;
-    color: #6b7280;
+    color: var(--color-text-muted);
   }
 
   .hint.optional {
@@ -266,8 +232,8 @@
 
   input,
   textarea {
-    border: 1px solid #d1d5db;
-    border-radius: 0.375rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
     padding: 0.5rem 0.75rem;
     font-size: 1rem;
     width: 100%;
@@ -281,7 +247,7 @@
 
   input:focus,
   textarea:focus {
-    outline: 2px solid #2563eb;
+    outline: 2px solid var(--color-primary);
     outline-offset: 1px;
   }
 
@@ -293,10 +259,10 @@
 
   .btn-primary {
     align-self: flex-start;
-    background: #2563eb;
+    background: var(--color-primary);
     color: #fff;
     border: none;
-    border-radius: 0.375rem;
+    border-radius: var(--radius-sm);
     padding: 0.5rem 0.875rem;
     font-size: 0.875rem;
     font-weight: 500;
@@ -304,7 +270,7 @@
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: #1d4ed8;
+    background: var(--color-primary-hover);
   }
 
   .btn-primary:disabled {
@@ -313,14 +279,14 @@
   }
 
   .danger-zone {
-    border-color: #fca5a5;
+    border-color: var(--color-error-border);
   }
 
   .btn-danger {
-    background: #fff;
-    color: #dc2626;
-    border: 1px solid #fca5a5;
-    border-radius: 0.375rem;
+    background: var(--color-surface);
+    color: var(--color-danger);
+    border: 1px solid var(--color-error-border);
+    border-radius: var(--radius-sm);
     padding: 0.5rem 0.875rem;
     font-size: 0.875rem;
     font-weight: 500;
@@ -328,7 +294,7 @@
   }
 
   .btn-danger:hover:not(:disabled) {
-    background: #fef2f2;
+    background: var(--color-error-bg-soft);
   }
 
   .btn-danger:disabled {

@@ -84,13 +84,15 @@
 </div>
 
 <style>
+  /* .section-title typography and .status-open / .status-closed colors come
+     from @queue-reminiscence/ui/components.css. */
   .page {
     min-height: 100vh;
   }
 
   .header {
-    background: #fff;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
     padding: 1rem;
   }
 
@@ -107,30 +109,30 @@
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #6b7280;
+    color: var(--color-text-muted);
     margin-bottom: 0.125rem;
   }
 
   .header-name {
     font-size: 1.125rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text);
   }
 
   .logout-btn {
-    background: #fff;
-    border: 1px solid #d1d5db;
-    border-radius: 0.375rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
-    color: #374151;
+    color: var(--color-text-strong);
     cursor: pointer;
     font-weight: 500;
     white-space: nowrap;
   }
 
   .logout-btn:hover:not(:disabled) {
-    background: #f9fafb;
+    background: var(--color-bg);
   }
 
   .logout-btn:disabled {
@@ -153,19 +155,14 @@
   }
 
   .section-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #374151;
     margin-bottom: 0;
   }
 
   .new-board-btn {
-    background: #2563eb;
+    background: var(--color-primary);
     color: #fff;
     border: none;
-    border-radius: 0.375rem;
+    border-radius: var(--radius-sm);
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
     font-weight: 500;
@@ -174,14 +171,14 @@
   }
 
   .new-board-btn:hover {
-    background: #1d4ed8;
+    background: var(--color-primary-hover);
     text-decoration: none;
   }
 
   .empty-state {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
     padding: 2rem 1.5rem;
     text-align: center;
   }
@@ -189,13 +186,13 @@
   .empty-title {
     font-size: 1rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text);
     margin-bottom: 0.5rem;
   }
 
   .empty-desc {
     font-size: 0.9375rem;
-    color: #6b7280;
+    color: var(--color-text-muted);
     max-width: 360px;
     margin: 0 auto;
     line-height: 1.6;
@@ -212,9 +209,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
     padding: 1rem 1.25rem;
     text-decoration: none;
     color: inherit;
@@ -222,7 +219,7 @@
   }
 
   .board-row:hover {
-    border-color: #2563eb;
+    border-color: var(--color-primary);
     text-decoration: none;
   }
 
@@ -235,13 +232,13 @@
 
   .board-name {
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text);
     font-size: 0.9375rem;
   }
 
   .board-slug {
     font-size: 0.75rem;
-    color: #9ca3af;
+    color: var(--color-text-faint);
   }
 
   .board-meta {
@@ -254,30 +251,20 @@
   .status-badge {
     display: inline-block;
     padding: 0.125rem 0.5rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
-  .status-open {
-    background: #d1fae5;
-    color: #065f46;
-  }
-
-  .status-closed {
-    background: #fee2e2;
-    color: #991b1b;
-  }
-
   .queue-count {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: var(--color-text-muted);
   }
 
   .arrow {
-    color: #9ca3af;
+    color: var(--color-text-faint);
     font-size: 1.125rem;
   }
 </style>

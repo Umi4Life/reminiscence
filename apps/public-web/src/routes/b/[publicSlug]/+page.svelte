@@ -104,6 +104,9 @@
 {/if}
 
 <style>
+  /* .section, .section-title, .card (box), .status-open, .status-closed come
+     from @queue-reminiscence/ui/components.css. Only layout-specific overrides
+     and one-off colors remain scoped here. */
   .not-found-container {
     display: flex;
     align-items: center;
@@ -113,10 +116,6 @@
   }
 
   .card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 2rem 1.5rem;
     max-width: 480px;
     width: 100%;
     text-align: center;
@@ -125,12 +124,12 @@
   .not-found-title {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text);
     margin-bottom: 0.75rem;
   }
 
   .not-found-message {
-    color: #6b7280;
+    color: var(--color-text-muted);
     font-size: 0.9375rem;
   }
 
@@ -146,35 +145,25 @@
 
   .venue-name {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: var(--color-text-muted);
     margin-bottom: 0.25rem;
   }
 
   .board-name {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text);
     margin-bottom: 0.5rem;
   }
 
   .status-badge {
     display: inline-block;
     padding: 0.125rem 0.625rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-  }
-
-  .status-open {
-    background: #d1fae5;
-    color: #065f46;
-  }
-
-  .status-closed {
-    background: #fee2e2;
-    color: #991b1b;
   }
 
   .content {
@@ -183,25 +172,9 @@
     gap: 1.5rem;
   }
 
-  .section {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-  }
-
-  .section-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #374151;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 1rem;
-  }
-
   .error-msg {
     margin-top: 0.75rem;
-    color: #dc2626;
+    color: var(--color-danger);
     font-size: 0.875rem;
   }
 </style>

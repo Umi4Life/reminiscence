@@ -44,7 +44,7 @@
     gap: 0.375rem;
     font-size: 0.875rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--color-text-strong);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     background: none;
@@ -55,7 +55,7 @@
   }
 
   .toggle:hover {
-    color: #111827;
+    color: var(--color-text);
   }
 
   .chevron {
@@ -64,7 +64,7 @@
 
   .count {
     font-weight: 400;
-    color: #6b7280;
+    color: var(--color-text-muted);
     text-transform: none;
     letter-spacing: 0;
   }
@@ -76,7 +76,7 @@
   }
 
   .empty {
-    color: #9ca3af;
+    color: var(--color-text-faint);
     font-size: 0.875rem;
     text-align: center;
     padding: 0.5rem 0;
@@ -88,7 +88,7 @@
     align-items: baseline;
     gap: 0.75rem;
     font-size: 0.875rem;
-    color: #374151;
+    color: var(--color-text-strong);
     padding: 0.375rem 0;
     border-bottom: 1px solid #f3f4f6;
   }
@@ -104,7 +104,7 @@
 
   .event-time {
     font-size: 0.75rem;
-    color: #9ca3af;
+    color: var(--color-text-faint);
     white-space: nowrap;
   }
 </style>

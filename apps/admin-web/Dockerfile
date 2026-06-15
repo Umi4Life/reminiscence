@@ -16,6 +16,9 @@ COPY packages/ui/package.json     ./packages/ui/
 
 RUN bun install --frozen-lockfile
 
+# Shared CSS package — imported by the app's root +layout.svelte and bundled
+# by Vite at build time, so its source must be present here (not just its manifest).
+COPY packages/ui ./packages/ui
 COPY apps/admin-web ./apps/admin-web
 
 # GCP_BUILDPACKS triggers adapter-auto to select @sveltejs/adapter-node

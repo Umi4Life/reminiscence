@@ -160,7 +160,7 @@
   {/if}
 
   {#if copyFeedback}
-    <div class="copy-feedback" role="status">{copyFeedback}</div>
+    <div class="success-box" role="status">{copyFeedback}</div>
   {/if}
 
   <div class="controls">
@@ -238,42 +238,8 @@
 {/if}
 
 <style>
-  .section {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-  }
-
-  .section-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #374151;
-    margin-bottom: 1rem;
-  }
-
-  .error-box {
-    background: #fef2f2;
-    border: 1px solid #fca5a5;
-    border-radius: 0.375rem;
-    color: #991b1b;
-    font-size: 0.875rem;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .copy-feedback {
-    background: #ecfdf5;
-    border: 1px solid #6ee7b7;
-    border-radius: 0.375rem;
-    color: #065f46;
-    font-size: 0.875rem;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.75rem;
-  }
-
+  /* .section, .section-title, .error-box, .success-box come from
+     @queue-reminiscence/ui/components.css. */
   .controls {
     display: flex;
     flex-wrap: wrap;
@@ -282,7 +248,7 @@
 
   .btn {
     padding: 0.5rem 0.875rem;
-    border-radius: 0.375rem;
+    border-radius: var(--radius-sm);
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
@@ -295,45 +261,45 @@
   }
 
   .btn-primary {
-    background: #2563eb;
+    background: var(--color-primary);
     color: #fff;
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: #1d4ed8;
+    background: var(--color-primary-hover);
   }
 
   .btn-danger {
-    background: #dc2626;
+    background: var(--color-danger);
     color: #fff;
   }
 
   .btn-danger:hover:not(:disabled) {
-    background: #b91c1c;
+    background: var(--color-danger-hover);
   }
 
   .btn-secondary {
     background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #e5e7eb;
+    color: var(--color-text-strong);
+    border: 1px solid var(--color-border);
   }
 
   .btn-secondary:hover:not(:disabled) {
-    background: #e5e7eb;
+    background: var(--color-border);
   }
 
   .rotate-result {
     margin-top: 1rem;
     background: #eff6ff;
     border: 1px solid #bfdbfe;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     padding: 0.875rem 1rem;
   }
 
   .rotate-label {
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #1d4ed8;
+    color: var(--color-primary-hover);
     margin-bottom: 0.375rem;
   }
 
@@ -344,7 +310,7 @@
 
   .rotate-url {
     font-size: 0.875rem;
-    color: #111827;
+    color: var(--color-text);
     word-break: break-all;
     margin-bottom: 0.25rem;
     font-family: monospace;
@@ -380,7 +346,7 @@
 
   .rotate-hint {
     font-size: 0.8125rem;
-    color: #6b7280;
+    color: var(--color-text-muted);
     margin-bottom: 0.75rem;
   }
 

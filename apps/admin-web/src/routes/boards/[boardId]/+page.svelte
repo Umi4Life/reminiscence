@@ -58,6 +58,8 @@
 {/if}
 
 <style>
+  /* .card (box) and .status-open / .status-closed colors come from
+     @queue-reminiscence/ui/components.css. */
   .not-found-container {
     display: flex;
     align-items: center;
@@ -67,10 +69,6 @@
   }
 
   .card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 2rem 1.5rem;
     max-width: 480px;
     width: 100%;
     text-align: center;
@@ -79,12 +77,12 @@
   .not-found-title {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text);
     margin-bottom: 0.75rem;
   }
 
   .not-found-msg {
-    color: #6b7280;
+    color: var(--color-text-muted);
     font-size: 0.9375rem;
     margin-bottom: 1.25rem;
   }
@@ -94,8 +92,8 @@
   }
 
   .header {
-    background: #fff;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
     padding: 1rem;
   }
 
@@ -110,49 +108,39 @@
 
   .back-link {
     font-size: 0.8125rem;
-    color: #6b7280;
+    color: var(--color-text-muted);
     text-decoration: none;
     display: block;
     margin-bottom: 0.375rem;
   }
 
   .back-link:hover {
-    color: #111827;
+    color: var(--color-text);
     text-decoration: underline;
   }
 
   .board-name {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text);
   }
 
   .board-slug {
     font-size: 0.75rem;
-    color: #9ca3af;
+    color: var(--color-text-faint);
     margin-top: 0.125rem;
   }
 
   .status-badge {
     display: inline-block;
     padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     flex-shrink: 0;
     margin-top: 0.25rem;
-  }
-
-  .status-open {
-    background: #d1fae5;
-    color: #065f46;
-  }
-
-  .status-closed {
-    background: #fee2e2;
-    color: #991b1b;
   }
 
   .content {

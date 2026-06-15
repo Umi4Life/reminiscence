@@ -17,6 +17,9 @@
     "apps/admin-web": {
       "name": "@queue-reminiscence/admin-web",
       "version": "0.0.1",
+      "dependencies": {
+        "@queue-reminiscence/ui": "workspace:*",
+      },
       "devDependencies": {
         "@sveltejs/adapter-auto": "^7.0.0",
         "@sveltejs/adapter-node": "5",
@@ -45,6 +48,9 @@
     "apps/public-web": {
       "name": "@queue-reminiscence/public-web",
       "version": "0.0.1",
+      "dependencies": {
+        "@queue-reminiscence/ui": "workspace:*",
+      },
       "devDependencies": {
         "@sveltejs/adapter-auto": "^7.0.0",
         "@sveltejs/adapter-node": "^5.5.4",

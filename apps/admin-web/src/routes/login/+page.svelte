@@ -64,9 +64,9 @@
   }
 
   .login-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     padding: 2rem;
     width: 100%;
     max-width: 24rem;
@@ -93,15 +93,15 @@
   }
 
   input {
-    border: 1px solid #d1d5db;
-    border-radius: 0.375rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
     padding: 0.5rem 0.75rem;
     font-size: 1rem;
     width: 100%;
   }
 
   input:focus {
-    outline: 2px solid #2563eb;
+    outline: 2px solid var(--color-primary);
     outline-offset: 1px;
   }
 
@@ -111,10 +111,10 @@
   }
 
   button {
-    background: #2563eb;
+    background: var(--color-primary);
     color: #fff;
     border: none;
-    border-radius: 0.375rem;
+    border-radius: var(--radius-sm);
     padding: 0.625rem 1rem;
     font-size: 1rem;
     font-weight: 500;
@@ -123,7 +123,7 @@
   }
 
   button:hover:not(:disabled) {
-    background: #1d4ed8;
+    background: var(--color-primary-hover);
   }
 
   button:disabled {
@@ -132,10 +132,10 @@
   }
 
   .error {
-    background: #fef2f2;
-    border: 1px solid #fca5a5;
-    border-radius: 0.375rem;
-    color: #991b1b;
+    background: var(--color-error-bg-soft);
+    border: 1px solid var(--color-error-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-error-text);
     font-size: 0.875rem;
     padding: 0.5rem 0.75rem;
     margin-bottom: 1rem;

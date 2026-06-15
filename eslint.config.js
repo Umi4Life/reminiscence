@@ -6,7 +6,7 @@ export default tseslint.config(
     ignores: [
       "node_modules/**",
       "**/.svelte-kit/**",
-      "build/**",
+      "**/build/**",
       "dist/**",
       "coverage/**",
       "postgres-data/**",

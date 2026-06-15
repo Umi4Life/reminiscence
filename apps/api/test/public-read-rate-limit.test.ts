@@ -35,9 +35,7 @@ describe("public board read rate limiting", () => {
     };
     const app = createApp(blocking);
 
-    const response = await app.handle(
-      new Request("http://localhost/api/public/boards/demo-queue"),
-    );
+    const response = await app.handle(new Request("http://localhost/api/public/boards/demo-queue"));
 
     expect(response.status).toBe(429);
     expect(await response.json()).toEqual({

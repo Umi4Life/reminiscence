@@ -120,13 +120,13 @@ confirmed MEDIUM gaps. Five patches, app-code only (no env/compose changes this 
 The QR/SVG path was reviewed and is **not** injectable — `qrcode` encodes the URL as QR
 data, not markup.
 
-| #   | Finding                                                       | Files changed                                            |
-| --- | ------------------------------------------------------------ | -------------------------------------------------------- |
-| A   | No HTTP security response headers                            | `app.ts`                                                 |
-| B   | No request body size limit (memory-exhaustion DoS)          | `app.ts` (`serve.maxRequestBodySize`)                    |
-| C   | `getEvents` `?limit=` uncapped → unbounded scan             | `queue/read.ts`                                          |
-| D   | No Origin/CSRF check on public cookie-auth mutations        | `http/csrf.ts`, `app.ts`                                 |
-| E   | Public board read / events / QR endpoints unthrottled       | `routes/public-boards.ts`, `routes/qr.ts`, `app.ts`      |
+| #   | Finding                                               | Files changed                                       |
+| --- | ----------------------------------------------------- | --------------------------------------------------- |
+| A   | No HTTP security response headers                     | `app.ts`                                            |
+| B   | No request body size limit (memory-exhaustion DoS)    | `app.ts` (`serve.maxRequestBodySize`)               |
+| C   | `getEvents` `?limit=` uncapped → unbounded scan       | `queue/read.ts`                                     |
+| D   | No Origin/CSRF check on public cookie-auth mutations  | `http/csrf.ts`, `app.ts`                            |
+| E   | Public board read / events / QR endpoints unthrottled | `routes/public-boards.ts`, `routes/qr.ts`, `app.ts` |
 
 ### Design notes
 

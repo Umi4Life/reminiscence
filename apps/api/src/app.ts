@@ -94,17 +94,14 @@ export function createApp(deps: AppDeps = {}) {
   // `Secure`-cookie convention used elsewhere. Harmless to omit over plain HTTP
   // (dev), and avoids poisoning a browser's HSTS cache for a non-HTTPS host.
   const enableHsts =
-    config.apiPublicBaseUrl.startsWith("https://") ||
-    config.apiAdminBaseUrl.startsWith("https://");
+    config.apiPublicBaseUrl.startsWith("https://") || config.apiAdminBaseUrl.startsWith("https://");
 
   const securityHeaders: Record<string, string> = {
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
     "referrer-policy": "strict-origin-when-cross-origin",
     "permissions-policy": "geolocation=(), microphone=(), camera=()",
-    ...(enableHsts
-      ? { "strict-transport-security": "max-age=31536000; includeSubDomains" }
-      : {}),
+    ...(enableHsts ? { "strict-transport-security": "max-age=31536000; includeSubDomains" } : {}),
   };
 
   // Cap request bodies well above the largest legitimate JSON payload here
@@ -160,9 +157,7 @@ export function createApp(deps: AppDeps = {}) {
     .use(adminVenuesRoutes(adminRouteDeps))
     .use(adminBoardsRoutes(adminRouteDeps))
     .use(publicAccessRoutes({ config, publicSessionService, rateLimiter }))
-    .use(
-      publicBoardsRoutes({ config, publicBoardReadService, queueMutationService, rateLimiter }),
-    )
+    .use(publicBoardsRoutes({ config, publicBoardReadService, queueMutationService, rateLimiter }))
     .use(
       displayRoutes({
         config,

@@ -130,11 +130,11 @@ docker run -e APP=admin-web -e ORIGIN=https://admin.example.com -p 3001:3001 ghc
 docker run -e APP=public-web -e ORIGIN=https://app.example.com -p 3000:3000 ghcr.io/<owner>/queue-reminiscence:latest
 ```
 
-| `APP` value  | Default port | Notes                                          |
-| ------------ | ------------ | ---------------------------------------------- |
+| `APP` value  | Default port | Notes                                                 |
+| ------------ | ------------ | ----------------------------------------------------- |
 | `api`        | 3002         | Runs migrations before starting; needs `DATABASE_URL` |
-| `admin-web`  | 3001         | Override with `PORT`; set `ORIGIN` for CSRF    |
-| `public-web` | 3000         | Override with `PORT`; set `ORIGIN` for CSRF    |
+| `admin-web`  | 3001         | Override with `PORT`; set `ORIGIN` for CSRF           |
+| `public-web` | 3000         | Override with `PORT`; set `ORIGIN` for CSRF           |
 
 CI pushes this image to `ghcr.io/<owner>/queue-reminiscence` on every merge to `main`, tagged as `:latest` and `:<git-sha>`.
 

@@ -83,7 +83,6 @@ components:
   # Reusable schemas
   # ---------------------------------------------------------------------------
   schemas:
-
     # ------ Primitives & enums -----------------------------------------------
 
     BoardStatus:
@@ -205,18 +204,18 @@ components:
             Null for `org_owner` memberships (which cover the whole org).
             Set to a specific venue ID for `venue_manager` and `venue_staff`.
         role:
-          $ref: '#/components/schemas/AdminMembershipRole'
+          $ref: "#/components/schemas/AdminMembershipRole"
 
     AdminSessionContext:
       type: object
       required: [admin, memberships]
       properties:
         admin:
-          $ref: '#/components/schemas/AdminIdentity'
+          $ref: "#/components/schemas/AdminIdentity"
         memberships:
           type: array
           items:
-            $ref: '#/components/schemas/AdminMembershipSummary'
+            $ref: "#/components/schemas/AdminMembershipSummary"
 
     # ------ Organization & venue --------------------------------------------
 
@@ -229,7 +228,7 @@ components:
           format: uuid
         slug:
           type: string
-          pattern: '^[a-z0-9._~-]+$'
+          pattern: "^[a-z0-9._~-]+$"
         name:
           type: string
         createdAt:
@@ -251,7 +250,7 @@ components:
           format: uuid
         slug:
           type: string
-          pattern: '^[a-z0-9._~-]+$'
+          pattern: "^[a-z0-9._~-]+$"
         name:
           type: string
         timezone:
@@ -300,11 +299,11 @@ components:
           format: uuid
         slug:
           type: string
-          pattern: '^[a-z0-9._~-]+$'
+          pattern: "^[a-z0-9._~-]+$"
           description: Unique within the venue; used in admin UI URLs.
         publicSlug:
           type: string
-          pattern: '^[a-z0-9._~-]+$'
+          pattern: "^[a-z0-9._~-]+$"
           description: Globally unique; used in public-facing URLs.
         name:
           type: string
@@ -312,15 +311,15 @@ components:
           type: string
           nullable: true
         status:
-          $ref: '#/components/schemas/BoardStatus'
+          $ref: "#/components/schemas/BoardStatus"
         publicViewPolicy:
-          $ref: '#/components/schemas/PublicViewPolicy'
+          $ref: "#/components/schemas/PublicViewPolicy"
         publicAddPolicy:
-          $ref: '#/components/schemas/PublicMutationPolicy'
+          $ref: "#/components/schemas/PublicMutationPolicy"
         publicRemovePolicy:
-          $ref: '#/components/schemas/PublicMutationPolicy'
+          $ref: "#/components/schemas/PublicMutationPolicy"
         qrRotationPolicy:
-          $ref: '#/components/schemas/QrRotationPolicy'
+          $ref: "#/components/schemas/QrRotationPolicy"
         qrRotationIntervalMinutes:
           type: integer
           nullable: true
@@ -349,11 +348,11 @@ components:
           description: ID of the venue this board belongs to.
         slug:
           type: string
-          pattern: '^[a-z0-9._~-]+$'
+          pattern: "^[a-z0-9._~-]+$"
           description: Must be unique within the venue.
         publicSlug:
           type: string
-          pattern: '^[a-z0-9._~-]+$'
+          pattern: "^[a-z0-9._~-]+$"
           description: Must be globally unique. Used in public board URLs.
         name:
           type: string
@@ -362,13 +361,13 @@ components:
           type: string
           nullable: true
         publicViewPolicy:
-          $ref: '#/components/schemas/PublicViewPolicy'
+          $ref: "#/components/schemas/PublicViewPolicy"
           default: open
         publicAddPolicy:
-          $ref: '#/components/schemas/PublicMutationPolicy'
+          $ref: "#/components/schemas/PublicMutationPolicy"
           default: access_code_required
         publicRemovePolicy:
-          $ref: '#/components/schemas/PublicMutationPolicy'
+          $ref: "#/components/schemas/PublicMutationPolicy"
           default: access_code_required
       description: |
         New boards are always created with `status: closed` and `qrRotationPolicy: manual`.
@@ -380,10 +379,10 @@ components:
       properties:
         slug:
           type: string
-          pattern: '^[a-z0-9._~-]+$'
+          pattern: "^[a-z0-9._~-]+$"
         publicSlug:
           type: string
-          pattern: '^[a-z0-9._~-]+$'
+          pattern: "^[a-z0-9._~-]+$"
         name:
           type: string
           minLength: 1
@@ -391,11 +390,11 @@ components:
           type: string
           nullable: true
         publicViewPolicy:
-          $ref: '#/components/schemas/PublicViewPolicy'
+          $ref: "#/components/schemas/PublicViewPolicy"
         publicAddPolicy:
-          $ref: '#/components/schemas/PublicMutationPolicy'
+          $ref: "#/components/schemas/PublicMutationPolicy"
         publicRemovePolicy:
-          $ref: '#/components/schemas/PublicMutationPolicy'
+          $ref: "#/components/schemas/PublicMutationPolicy"
       description: |
         At least one field is required. Fields `venueId`, `status`, `qrRotationPolicy`,
         `qrRotationIntervalMinutes`, `displayVersion`, and `nextSortOrder` cannot be patched.
@@ -406,7 +405,7 @@ components:
       required: [board, changed]
       properties:
         board:
-          $ref: '#/components/schemas/BoardSummary'
+          $ref: "#/components/schemas/BoardSummary"
         changed:
           type: boolean
           description: |
@@ -508,9 +507,9 @@ components:
       required: [organization, venue, board, queue, mutationAccess]
       properties:
         organization:
-          $ref: '#/components/schemas/PublicBoardOrganization'
+          $ref: "#/components/schemas/PublicBoardOrganization"
         venue:
-          $ref: '#/components/schemas/PublicBoardVenue'
+          $ref: "#/components/schemas/PublicBoardVenue"
         board:
           type: object
           required:
@@ -530,11 +529,11 @@ components:
               type: string
               nullable: true
             status:
-              $ref: '#/components/schemas/BoardStatus'
+              $ref: "#/components/schemas/BoardStatus"
             publicAddPolicy:
-              $ref: '#/components/schemas/PublicMutationPolicy'
+              $ref: "#/components/schemas/PublicMutationPolicy"
             publicRemovePolicy:
-              $ref: '#/components/schemas/PublicMutationPolicy'
+              $ref: "#/components/schemas/PublicMutationPolicy"
             displayVersion:
               type: integer
             updatedAt:
@@ -543,10 +542,10 @@ components:
         queue:
           type: array
           items:
-            $ref: '#/components/schemas/PublicBoardQueueEntry'
+            $ref: "#/components/schemas/PublicBoardQueueEntry"
           description: Active entries in queue order (position 1 first).
         mutationAccess:
-          $ref: '#/components/schemas/PublicBoardMutationAccess'
+          $ref: "#/components/schemas/PublicBoardMutationAccess"
 
     PublicBoardEventItem:
       type: object
@@ -556,7 +555,7 @@ components:
           type: string
           format: uuid
         type:
-          $ref: '#/components/schemas/BoardEventType'
+          $ref: "#/components/schemas/BoardEventType"
         publicMessage:
           type: string
           description: Human-readable description, e.g. "Aki joined the queue."
@@ -583,7 +582,7 @@ components:
         sortOrder:
           type: integer
         status:
-          $ref: '#/components/schemas/QueueEntryStatus'
+          $ref: "#/components/schemas/QueueEntryStatus"
         createdAt:
           type: string
           format: date-time
@@ -638,18 +637,18 @@ components:
             organizationName:
               type: string
             status:
-              $ref: '#/components/schemas/BoardStatus'
+              $ref: "#/components/schemas/BoardStatus"
         queue:
           type: array
           items:
-            $ref: '#/components/schemas/DisplayQueueEntry'
+            $ref: "#/components/schemas/DisplayQueueEntry"
           description: Active queue entries in position order.
         queueLength:
           type: integer
           minimum: 0
         publicAccess:
           allOf:
-            - $ref: '#/components/schemas/DisplayPublicAccess'
+            - $ref: "#/components/schemas/DisplayPublicAccess"
           nullable: true
           description: |
             Present only when the display device has `canViewPublicAccessPayload` permission
@@ -671,7 +670,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
           example:
             ok: false
             error:
@@ -683,7 +682,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
           example:
             ok: false
             error:
@@ -695,7 +694,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
           example:
             ok: false
             error:
@@ -707,7 +706,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
           example:
             ok: false
             error:
@@ -724,7 +723,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
           example:
             ok: false
             error:
@@ -736,23 +735,22 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 paths:
-
   # ---------- Health ---------------------------------------------------------
 
   /healthz:
     get:
       tags: [Health]
       summary: Liveness probe
-      description: Returns `{ ok: true }` if the process is running. No DB check.
+      description: "Returns `{ ok: true }` if the process is running. No DB check."
       operationId: healthz
       responses:
-        '200':
+        "200":
           description: Process is alive.
           content:
             application/json:
@@ -770,10 +768,10 @@ paths:
     get:
       tags: [Health]
       summary: Readiness probe
-      description: Returns `{ ok: true }` only when the database is reachable.
+      description: "Returns `{ ok: true }` only when the database is reachable."
       operationId: readyz
       responses:
-        '200':
+        "200":
           description: Service is ready.
           content:
             application/json:
@@ -786,7 +784,7 @@ paths:
                     enum: [true]
               example:
                 ok: true
-        '503':
+        "503":
           description: Database is unreachable — not ready.
           content:
             application/json:
@@ -831,7 +829,7 @@ paths:
               email: operator@example.com
               password: supersecret
       responses:
-        '200':
+        "200":
           description: Login successful. Session cookie set in `Set-Cookie`.
           headers:
             Set-Cookie:
@@ -848,13 +846,13 @@ paths:
                     type: boolean
                     enum: [true]
                   data:
-                    $ref: '#/components/schemas/AdminSessionContext'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                    $ref: "#/components/schemas/AdminSessionContext"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /api/admin/auth/logout:
     post:
@@ -867,7 +865,7 @@ paths:
       security:
         - AdminSession: []
       responses:
-        '200':
+        "200":
           description: Session revoked (or was already absent).
           headers:
             Set-Cookie:
@@ -904,7 +902,7 @@ paths:
       security:
         - AdminSession: []
       responses:
-        '200':
+        "200":
           description: Current session context.
           content:
             application/json:
@@ -916,9 +914,9 @@ paths:
                     type: boolean
                     enum: [true]
                   data:
-                    $ref: '#/components/schemas/AdminSessionContext'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                    $ref: "#/components/schemas/AdminSessionContext"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # ---------- Admin Organizations -------------------------------------------
 
@@ -931,7 +929,7 @@ paths:
       security:
         - AdminSession: []
       responses:
-        '200':
+        "200":
           description: Organizations list.
           content:
             application/json:
@@ -949,9 +947,9 @@ paths:
                       organizations:
                         type: array
                         items:
-                          $ref: '#/components/schemas/OrganizationSummary'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                          $ref: "#/components/schemas/OrganizationSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # ---------- Admin Venues --------------------------------------------------
 
@@ -967,7 +965,7 @@ paths:
       security:
         - AdminSession: []
       responses:
-        '200':
+        "200":
           description: Venues list.
           content:
             application/json:
@@ -985,9 +983,9 @@ paths:
                       venues:
                         type: array
                         items:
-                          $ref: '#/components/schemas/VenueSummary'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                          $ref: "#/components/schemas/VenueSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # ---------- Admin Boards --------------------------------------------------
 
@@ -1000,7 +998,7 @@ paths:
       security:
         - AdminSession: []
       responses:
-        '200':
+        "200":
           description: Boards list.
           content:
             application/json:
@@ -1018,9 +1016,9 @@ paths:
                       boards:
                         type: array
                         items:
-                          $ref: '#/components/schemas/BoardSummary'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                          $ref: "#/components/schemas/BoardSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
     post:
       tags: [Admin Boards]
@@ -1040,7 +1038,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateBoardRequest'
+              $ref: "#/components/schemas/CreateBoardRequest"
             example:
               venueId: 123e4567-e89b-12d3-a456-426614174000
               slug: rhythm-game-a
@@ -1051,7 +1049,7 @@ paths:
               publicAddPolicy: access_code_required
               publicRemovePolicy: access_code_required
       responses:
-        '200':
+        "200":
           description: Board created.
           content:
             application/json:
@@ -1067,16 +1065,16 @@ paths:
                     required: [board]
                     properties:
                       board:
-                        $ref: '#/components/schemas/BoardSummary'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+                        $ref: "#/components/schemas/BoardSummary"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Venue not found (or not accessible to this admin).
-          $ref: '#/components/responses/NotFound'
+          $ref: "#/components/responses/NotFound"
 
   /api/admin/boards/{boardId}:
     parameters:
@@ -1096,7 +1094,7 @@ paths:
       security:
         - AdminSession: []
       responses:
-        '200':
+        "200":
           description: Board details.
           content:
             application/json:
@@ -1112,11 +1110,11 @@ paths:
                     required: [board]
                     properties:
                       board:
-                        $ref: '#/components/schemas/BoardSummary'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                        $ref: "#/components/schemas/BoardSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
     patch:
       tags: [Admin Boards]
@@ -1138,12 +1136,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchBoardRequest'
+              $ref: "#/components/schemas/PatchBoardRequest"
             example:
               name: Rhythm Game A (updated)
               description: Now on the right cabinet
       responses:
-        '200':
+        "200":
           description: Board updated.
           content:
             application/json:
@@ -1159,15 +1157,15 @@ paths:
                     required: [board]
                     properties:
                       board:
-                        $ref: '#/components/schemas/BoardSummary'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                        $ref: "#/components/schemas/BoardSummary"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
     delete:
       tags: [Admin Boards]
@@ -1181,7 +1179,7 @@ paths:
       security:
         - AdminSession: []
       responses:
-        '200':
+        "200":
           description: Board deleted.
           content:
             application/json:
@@ -1203,12 +1201,12 @@ paths:
                 ok: true
                 data:
                   deleted: true
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/admin/boards/{boardId}/open:
     post:
@@ -1230,7 +1228,7 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Board opened (or was already open).
           content:
             application/json:
@@ -1242,13 +1240,13 @@ paths:
                     type: boolean
                     enum: [true]
                   data:
-                    $ref: '#/components/schemas/BoardOperationResult'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                    $ref: "#/components/schemas/BoardOperationResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/admin/boards/{boardId}/close:
     post:
@@ -1270,7 +1268,7 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Board closed (or was already closed).
           content:
             application/json:
@@ -1282,13 +1280,13 @@ paths:
                     type: boolean
                     enum: [true]
                   data:
-                    $ref: '#/components/schemas/BoardOperationResult'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                    $ref: "#/components/schemas/BoardOperationResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/admin/boards/{boardId}/reset:
     post:
@@ -1311,7 +1309,7 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Queue cleared.
           content:
             application/json:
@@ -1323,13 +1321,13 @@ paths:
                     type: boolean
                     enum: [true]
                   data:
-                    $ref: '#/components/schemas/BoardOperationResult'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                    $ref: "#/components/schemas/BoardOperationResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/admin/boards/{boardId}/access-credentials/rotate:
     post:
@@ -1355,7 +1353,7 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Credential rotated.
           content:
             application/json:
@@ -1371,15 +1369,15 @@ paths:
                     required: [board, credential]
                     properties:
                       board:
-                        $ref: '#/components/schemas/BoardSummary'
+                        $ref: "#/components/schemas/BoardSummary"
                       credential:
-                        $ref: '#/components/schemas/RotatedBoardAccessCredential'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                        $ref: "#/components/schemas/RotatedBoardAccessCredential"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   # ---------- Public Access -------------------------------------------------
 
@@ -1413,7 +1411,7 @@ paths:
             example:
               accessCode: AbCdEfGhIjKlMnOpQrStUvWxYz012345
       responses:
-        '200':
+        "200":
           description: |
             Always 200. Check `data.claimed` to determine whether a session was granted.
           headers:
@@ -1498,10 +1496,10 @@ paths:
                         id: 123e4567-e89b-12d3-a456-426614174000
                         publicSlug: arcadia-rhythm-a
                       message: This queue link is no longer active for editing.
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /api/public/access/logout:
     post:
@@ -1514,7 +1512,7 @@ paths:
       security:
         - PublicSession: []
       responses:
-        '200':
+        "200":
           description: Session revoked.
           headers:
             Set-Cookie:
@@ -1551,7 +1549,7 @@ paths:
         required: true
         schema:
           type: string
-          pattern: '^[a-z0-9._~-]+$'
+          pattern: "^[a-z0-9._~-]+$"
         description: The board's globally unique public slug.
 
     get:
@@ -1568,7 +1566,7 @@ paths:
         - {}
         - PublicSession: []
       responses:
-        '200':
+        "200":
           description: Board state.
           content:
             application/json:
@@ -1584,11 +1582,11 @@ paths:
                     required: [board]
                     properties:
                       board:
-                        $ref: '#/components/schemas/PublicBoardReadData'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                        $ref: "#/components/schemas/PublicBoardReadData"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /api/public/boards/{publicSlug}/events:
     get:
@@ -1606,7 +1604,7 @@ paths:
           required: true
           schema:
             type: string
-            pattern: '^[a-z0-9._~-]+$'
+            pattern: "^[a-z0-9._~-]+$"
         - name: limit
           in: query
           required: false
@@ -1617,7 +1615,7 @@ paths:
             default: 20
           description: Maximum number of events to return. Clamped to 100.
       responses:
-        '200':
+        "200":
           description: Event list (newest first).
           content:
             application/json:
@@ -1635,11 +1633,11 @@ paths:
                       events:
                         type: array
                         items:
-                          $ref: '#/components/schemas/PublicBoardEventItem'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                          $ref: "#/components/schemas/PublicBoardEventItem"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /api/public/boards/{publicSlug}/entries:
     post:
@@ -1680,7 +1678,7 @@ paths:
             example:
               displayName: Aki
       responses:
-        '200':
+        "200":
           description: Entry added to the queue.
           content:
             application/json:
@@ -1696,18 +1694,18 @@ paths:
                     required: [entry]
                     properties:
                       entry:
-                        $ref: '#/components/schemas/PublicQueueEntryResult'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
+                        $ref: "#/components/schemas/PublicQueueEntryResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
           description: Board is closed or add policy does not allow public adds.
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /api/public/boards/{publicSlug}/entries/{entryId}/remove:
     post:
@@ -1740,7 +1738,7 @@ paths:
             format: uuid
           description: UUID of the queue entry to remove.
       responses:
-        '200':
+        "200":
           description: Entry removed.
           content:
             application/json:
@@ -1766,18 +1764,18 @@ paths:
                 data:
                   entryId: 123e4567-e89b-12d3-a456-426614174000
                   removed: true
-        '400':
+        "400":
           description: Entry is already removed.
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
           description: Board is closed or remove policy does not allow public removals.
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   # ---------- QR ------------------------------------------------------------
 
@@ -1804,26 +1802,26 @@ paths:
             maxLength: 256
           description: The raw access code token (same value embedded in the access URL).
       responses:
-        '200':
+        "200":
           description: SVG QR code image.
           headers:
             Cache-Control:
               schema:
                 type: string
-                enum: ['no-store']
+                enum: ["no-store"]
             Content-Type:
               schema:
                 type: string
-                enum: ['image/svg+xml']
+                enum: ["image/svg+xml"]
           content:
             image/svg+xml:
               schema:
                 type: string
                 format: binary
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   # ---------- Display -------------------------------------------------------
 
@@ -1859,7 +1857,7 @@ paths:
             type: string
           description: ETag from a previous response. Returns 304 if `displayVersion` has not changed.
       responses:
-        '200':
+        "200":
           description: Current display state.
           headers:
             ETag:
@@ -1869,7 +1867,7 @@ paths:
             Cache-Control:
               schema:
                 type: string
-                enum: ['no-store']
+                enum: ["no-store"]
           content:
             application/json:
               schema:
@@ -1884,12 +1882,12 @@ paths:
                     required: [state]
                     properties:
                       state:
-                        $ref: '#/components/schemas/DisplayStatePayload'
-        '304':
+                        $ref: "#/components/schemas/DisplayStatePayload"
+        "304":
           description: Board has not changed since the supplied ETag.
-        '401':
+        "401":
           description: Display token not found.
-          $ref: '#/components/responses/Unauthorized'
-        '403':
+          $ref: "#/components/responses/Unauthorized"
+        "403":
           description: Display device has been revoked.
-          $ref: '#/components/responses/Forbidden'
+          $ref: "#/components/responses/Forbidden"

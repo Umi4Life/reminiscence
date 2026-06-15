@@ -32,6 +32,7 @@ import { publicBoardsRoutes } from "./routes/public-boards";
 import { qrRoutes } from "./routes/qr";
 import { healthRoutes, isDatabaseReachable } from "./routes/health";
 import { displayRoutes } from "./routes/display";
+import { docsRoutes } from "./routes/docs";
 import type { DisplayDeviceResolver } from "./display/display-devices";
 import type { DisplayStateService } from "./display/display-state";
 
@@ -166,7 +167,8 @@ export function createApp(deps: AppDeps = {}) {
         displayStateService: deps.displayStateService,
       }),
     )
-    .use(qrRoutes({ config, db, rateLimiter }));
+    .use(qrRoutes({ config, db, rateLimiter }))
+    .use(docsRoutes());
 }
 
 export function createTestApp(deps: AppDeps = {}) {

@@ -85,7 +85,17 @@ export default async function globalSetup(): Promise<void> {
   writeEnvIfMissing();
 
   const bunBin = `${process.env.HOME}/.bun/bin`;
-  const env = { ...process.env, PATH: `${bunBin}:${process.env.PATH ?? ""}` };
+  // Always target the e2e container regardless of what DATABASE_URL is in .env.
+  // Pin credentials to the e2e defaults so the seeded password always matches
+  // what helpers/env.ts falls back to when SEED_ADMIN_PASSWORD is absent.
+  const E2E_DB_URL = `postgres://${PG_USER}:${PG_USER}@localhost:${PG_PORT}/${PG_USER}`;
+  const env = {
+    ...process.env,
+    PATH: `${bunBin}:${process.env.PATH ?? ""}`,
+    DATABASE_URL: E2E_DB_URL,
+    SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL ?? "admin@example.com",
+    SEED_ADMIN_PASSWORD: process.env.SEED_ADMIN_PASSWORD ?? "e2e-admin-password",
+  };
 
   console.log("[global-setup] Running db:migrate...");
   execSync("bun run --cwd packages/db db:migrate", { stdio: "inherit", env });

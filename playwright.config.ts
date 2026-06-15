@@ -32,11 +32,15 @@ function e(key: string, fallback = ""): string {
   return process.env[key] ?? fallback;
 }
 
+// Always use the dedicated e2e container, not whatever DATABASE_URL .env has.
+const E2E_DB_URL =
+  "postgres://queue_reminiscence:queue_reminiscence@localhost:5433/queue_reminiscence";
+
 const webServerEnv: Record<string, string> = {
-  DATABASE_URL: e("DATABASE_URL"),
-  SESSION_SECRET: e("SESSION_SECRET"),
-  TOKEN_HMAC_SECRET: e("TOKEN_HMAC_SECRET"),
-  RATE_LIMIT_HMAC_SECRET: e("RATE_LIMIT_HMAC_SECRET"),
+  DATABASE_URL: E2E_DB_URL,
+  SESSION_SECRET: e("SESSION_SECRET", "e2e-session-secret-change-me"),
+  TOKEN_HMAC_SECRET: e("TOKEN_HMAC_SECRET", "e2e-token-hmac-secret"),
+  RATE_LIMIT_HMAC_SECRET: e("RATE_LIMIT_HMAC_SECRET", "e2e-rate-limit-hmac-secret"),
   // E2E browsers hit localhost; force matching origins so CSRF/CORS accept admin login.
   PUBLIC_APP_URL: "http://localhost:3000",
   ADMIN_APP_URL: "http://localhost:3001",

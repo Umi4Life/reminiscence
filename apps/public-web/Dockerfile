@@ -1,24 +1,29 @@
-FROM oven/bun:1-alpine AS builder
+# syntax=docker/dockerfile:1
+
+# ── Stage 1: build ───────────────────────────────────────────────────
+FROM oven/bun:1.2.23-alpine AS builder
 WORKDIR /app
 
-# Copy all workspace manifests so the monorepo lockfile is consistent
+# Bring in all workspace manifests so bun can resolve the full dep graph
 COPY package.json bun.lock ./
+COPY apps/api/package.json        ./apps/api/
+COPY apps/admin-web/package.json  ./apps/admin-web/
 COPY apps/public-web/package.json ./apps/public-web/
-COPY apps/admin-web/package.json ./apps/admin-web/
-COPY apps/api/package.json ./apps/api/
 COPY packages/config/package.json ./packages/config/
-COPY packages/db/package.json ./packages/db/
+COPY packages/db/package.json     ./packages/db/
 COPY packages/domain/package.json ./packages/domain/
-COPY packages/ui/package.json ./packages/ui/
+COPY packages/ui/package.json     ./packages/ui/
 
 RUN bun install --frozen-lockfile
 
-# Only copy source needed for this app
-COPY apps/public-web ./apps/public-web/
+COPY apps/public-web ./apps/public-web
 
+# GCP_BUILDPACKS triggers adapter-auto to select @sveltejs/adapter-node
+ENV GCP_BUILDPACKS=1
 RUN bun run --cwd apps/public-web build
 
-FROM node:22-alpine AS runner
+# ── Stage 2: runtime ─────────────────────────────────────────────────
+FROM node:22-alpine
 WORKDIR /app
 
 COPY --from=builder /app/apps/public-web/build ./build
@@ -26,4 +31,6 @@ COPY --from=builder /app/apps/public-web/build ./build
 ENV PORT=3000
 EXPOSE 3000
 
+# PUBLIC_API_BASE_URL defaults to http://localhost:3002/api in public-web
+# Set PUBLIC_API_BASE_URL and ORIGIN at runtime for production use
 CMD ["node", "build/index.js"]

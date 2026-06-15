@@ -17,25 +17,25 @@
 
 ## Progress Status
 
-_Last updated: 2026-06-14 after PR #32–#37 merge (Phases 11–12)._
+_Last updated: 2026-06-14 after PR #40–#41 merge (Phase 13)._
 
-| Phase                                               | Status      | Evidence            |
-| --------------------------------------------------- | ----------- | ------------------- |
-| Phase 0: Repository Foundation                      | ✅ Complete | PR #1               |
-| Phase 1: Shared Configuration and Domain Primitives | ✅ Complete | PR #1               |
-| Phase 2: Database Schema                            | ✅ Complete | PR #3–#6            |
-| Phase 3: API Foundation                             | ✅ Complete | PR #7               |
-| Phase 4: Seed Data and Admin Auth                   | ✅ Complete | PR #8–#10           |
-| Phase 5: Admin Board Management API                 | ✅ Complete | PR #12–#14          |
-| Phase 6: QR/Access Credential System                | ✅ Complete | PR #16–#18          |
-| Phase 7: Public Board Read and Mutation API         | ✅ Complete | PR #20–#21          |
-| Phase 8: Rate Limiting and Audit Metadata           | ✅ Complete | PR #22–#23          |
-| Phase 9: QR Rendering and Display-State API         | ✅ Complete | PR #25–#26          |
-| Phase 10: Public Web App                            | ✅ Complete | PR #28–#29          |
-| Phase 11: Admin Web App                             | ✅ Complete | PR #32–#33, #35–#36 |
-| Phase 12: End-to-End Testing                        | ✅ Complete | PR #34, #37         |
-| Phase 13: Docker and Homelab Deployment             | 🔲 Next     |                     |
-| Phase 14: MVP Hardening and Review                  | 🔲          |                     |
+| Phase                                               | Status      | Evidence                     |
+| --------------------------------------------------- | ----------- | ---------------------------- |
+| Phase 0: Repository Foundation                      | ✅ Complete | PR #1                        |
+| Phase 1: Shared Configuration and Domain Primitives | ✅ Complete | PR #1                        |
+| Phase 2: Database Schema                            | ✅ Complete | PR #3–#6                     |
+| Phase 3: API Foundation                             | ✅ Complete | PR #7                        |
+| Phase 4: Seed Data and Admin Auth                   | ✅ Complete | PR #8–#10                    |
+| Phase 5: Admin Board Management API                 | ✅ Complete | PR #12–#14                   |
+| Phase 6: QR/Access Credential System                | ✅ Complete | PR #16–#18                   |
+| Phase 7: Public Board Read and Mutation API         | ✅ Complete | PR #20–#21                   |
+| Phase 8: Rate Limiting and Audit Metadata           | ✅ Complete | PR #22–#23                   |
+| Phase 9: QR Rendering and Display-State API         | ✅ Complete | PR #25–#26                   |
+| Phase 10: Public Web App                            | ✅ Complete | PR #28–#29                   |
+| Phase 11: Admin Web App                             | ✅ Complete | PR #32–#33, #35–#36          |
+| Phase 12: End-to-End Testing                        | ✅ Complete | PR #34, #37                  |
+| Phase 13: Docker and Homelab Deployment             | ✅ Complete | PR #40 (compose), #41 (docs) |
+| Phase 14: MVP Hardening and Review                  | 🔲 Next     |                              |
 
 Phase 4 completion notes:
 
@@ -107,6 +107,13 @@ Phase 12 completion notes:
 - PR #37 added `mvp-queue-flow.spec.ts` covering admin login → open → rotate → participant claim → add/remove → activity on both apps.
 - E2E stack: API :3002, public-web :3000, admin-web :3001; seed board **CHUNITHM Gold**.
 - Completion journal: `docs/plans/2026-06-14-phase-12-completion-journal.md`.
+
+Phase 13 completion notes:
+
+- PR #40 added `docker-compose.yml` (full dev stack with Postgres on :5432) and `docker-compose.homelab.yml` (app-only overlay for external Postgres + Traefik); three Dockerfiles for `qr-api`, `qr-admin`, `qr-display`.
+- PR #41 added `docs/deployment/local-development.md`, `docs/deployment/homelab-traefik-postgres.md`, README "Deploy with Docker" section, and this phase marked complete.
+- Homelab mode uses external Postgres/Traefik; `TRUST_PROXY=true` required when proxy terminates TLS.
+- Completion journal: `docs/plans/2026-06-14-phase-13-completion-journal.md`.
 
 ---
 

@@ -6,20 +6,31 @@ import { Elysia } from "elysia";
 
 import { buildPublicAccessUrl } from "../access/access-url";
 import { notFoundError } from "../http/errors";
+import { hashClientIp } from "../public/audit-metadata";
 import { renderQrSvg } from "../qr/render-svg";
+import type { RateLimiter } from "../rate-limit/rate-limiter";
 import { hashOpaqueToken } from "../security/tokens";
 
 export interface QrRouteDeps {
   config: AppConfig;
   db: Database;
+  rateLimiter: RateLimiter;
 }
 
+// Throttle QR renders per source IP. Access codes are 32-byte tokens (not
+// practically brute-forceable), but this caps the free DB lookup + SVG render
+// an attacker can drive per minute.
+const QR_IP_LIMIT = { scope: "qr_ip_1m", windowSeconds: 60, maxCount: 30 } as const;
+
 export function qrRoutes(deps: QrRouteDeps) {
-  const { config, db } = deps;
+  const { config, db, rateLimiter } = deps;
 
   return new Elysia({ name: "qr-routes" }).get(
     "/api/qr/:accessCode.svg",
-    async ({ params, set }) => {
+    async ({ params, request, set }) => {
+      const ipKey = hashClientIp(request, config) ?? "unknown";
+      await rateLimiter.checkAndIncrement({ ...QR_IP_LIMIT, bucketKey: ipKey });
+
       const rawParam = (params as Record<string, string>)["accessCode.svg"] ?? "";
       const accessCode = rawParam.endsWith(".svg") ? rawParam.slice(0, -4) : rawParam;
 

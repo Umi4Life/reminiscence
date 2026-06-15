@@ -89,6 +89,7 @@ function createApp(queueMutationService = createFakeQueueMutationService()) {
     queueMutationService,
     publicBoardReadService: createFakePublicBoardReadService(),
     checkDatabase: async () => true,
+    rateLimiter: { async checkAndIncrement() {} },
   });
 }
 

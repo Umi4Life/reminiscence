@@ -6,12 +6,16 @@ import {
   adminOriginOf,
   isAdminMutationRequest,
   isForbiddenAdminCrossOrigin,
+  isForbiddenPublicCrossOrigin,
+  isPublicMutationRequest,
+  publicOriginOf,
 } from "../src/http/csrf";
 import { unauthorizedError } from "../src/http/errors";
 import type { RateLimiter } from "../src/rate-limit/rate-limiter";
 import { testAppConfig } from "./test-config";
 
 const ADMIN_ORIGIN = adminOriginOf(testAppConfig); // http://localhost:3001
+const PUBLIC_ORIGIN = publicOriginOf(testAppConfig); // http://localhost:3000
 const FOREIGN_ORIGIN = "https://evil.example";
 
 function req(method: string, path: string, headers: Record<string, string> = {}): Request {
@@ -53,6 +57,43 @@ describe("CSRF helpers", () => {
       isForbiddenAdminCrossOrigin(
         req("GET", "/api/admin/me", { origin: FOREIGN_ORIGIN }),
         ADMIN_ORIGIN,
+      ),
+    ).toBe(false);
+  });
+
+  test("only public mutating methods are flagged", () => {
+    expect(isPublicMutationRequest(req("POST", "/api/public/access/claim"))).toBe(true);
+    expect(isPublicMutationRequest(req("POST", "/api/public/boards/b1/entries"))).toBe(true);
+    expect(isPublicMutationRequest(req("GET", "/api/public/boards/b1"))).toBe(false);
+    expect(isPublicMutationRequest(req("POST", "/api/admin/auth/login"))).toBe(false);
+  });
+
+  test("foreign origin on a public mutation is forbidden", () => {
+    expect(
+      isForbiddenPublicCrossOrigin(
+        req("POST", "/api/public/boards/b1/entries", { origin: FOREIGN_ORIGIN }),
+        PUBLIC_ORIGIN,
+      ),
+    ).toBe(true);
+  });
+
+  test("public origin and origin-less public mutations are allowed", () => {
+    expect(
+      isForbiddenPublicCrossOrigin(
+        req("POST", "/api/public/boards/b1/entries", { origin: PUBLIC_ORIGIN }),
+        PUBLIC_ORIGIN,
+      ),
+    ).toBe(false);
+    expect(
+      isForbiddenPublicCrossOrigin(req("POST", "/api/public/access/claim"), PUBLIC_ORIGIN),
+    ).toBe(false);
+  });
+
+  test("safe-method public requests are never CSRF-blocked even from a foreign origin", () => {
+    expect(
+      isForbiddenPublicCrossOrigin(
+        req("GET", "/api/public/boards/b1", { origin: FOREIGN_ORIGIN }),
+        PUBLIC_ORIGIN,
       ),
     ).toBe(false);
   });

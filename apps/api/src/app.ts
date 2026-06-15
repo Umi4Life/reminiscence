@@ -12,7 +12,12 @@ import { createDbBoardAccessService, type BoardAccessService } from "./access/bo
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
 import { createDbPublicSessionService, type PublicSessionService } from "./auth/public-sessions";
 import { buildAllowedOrigins, resolveCors } from "./http/cors";
-import { adminOriginOf, isForbiddenAdminCrossOrigin } from "./http/csrf";
+import {
+  adminOriginOf,
+  isForbiddenAdminCrossOrigin,
+  isForbiddenPublicCrossOrigin,
+  publicOriginOf,
+} from "./http/csrf";
 import { ApiError, forbiddenError } from "./http/errors";
 import { apiFailure } from "./http/response";
 import { createDbPublicBoardReadService, type PublicBoardReadService } from "./queue/read";
@@ -83,19 +88,46 @@ export function createApp(deps: AppDeps = {}) {
 
   const allowedOrigins = buildAllowedOrigins(config);
   const adminOrigin = adminOriginOf(config);
+  const publicOrigin = publicOriginOf(config);
 
-  return new Elysia({ name: "queue-reminiscence-api" })
+  // Emit HSTS only when the deployment actually terminates TLS, mirroring the
+  // `Secure`-cookie convention used elsewhere. Harmless to omit over plain HTTP
+  // (dev), and avoids poisoning a browser's HSTS cache for a non-HTTPS host.
+  const enableHsts =
+    config.apiPublicBaseUrl.startsWith("https://") || config.apiAdminBaseUrl.startsWith("https://");
+
+  const securityHeaders: Record<string, string> = {
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "permissions-policy": "geolocation=(), microphone=(), camera=()",
+    ...(enableHsts ? { "strict-transport-security": "max-age=31536000; includeSubDomains" } : {}),
+  };
+
+  // Cap request bodies well above the largest legitimate JSON payload here
+  // (claims, logins, display names) so an oversized POST can't exhaust memory.
+  return new Elysia({
+    name: "queue-reminiscence-api",
+    serve: { maxRequestBodySize: 64 * 1024 },
+  })
     .onRequest(({ request, set }) => {
       const { headers, preflight } = resolveCors(allowedOrigins, request);
-      Object.assign(set.headers, headers);
+      Object.assign(set.headers, headers, securityHeaders);
 
       if (preflight) {
         set.status = 204;
         return "";
       }
 
-      // CSRF defense-in-depth: reject admin mutations from a foreign origin.
+      // CSRF defense-in-depth: reject mutations from a foreign origin. Admin and
+      // public sessions are both cookie-based (`SameSite=Lax`), so both surfaces
+      // get the second layer.
       if (isForbiddenAdminCrossOrigin(request, adminOrigin)) {
+        set.status = 403;
+        return apiFailure(forbiddenError("Cross-origin request rejected."));
+      }
+
+      if (isForbiddenPublicCrossOrigin(request, publicOrigin)) {
         set.status = 403;
         return apiFailure(forbiddenError("Cross-origin request rejected."));
       }
@@ -125,7 +157,7 @@ export function createApp(deps: AppDeps = {}) {
     .use(adminVenuesRoutes(adminRouteDeps))
     .use(adminBoardsRoutes(adminRouteDeps))
     .use(publicAccessRoutes({ config, publicSessionService, rateLimiter }))
-    .use(publicBoardsRoutes({ config, publicBoardReadService, queueMutationService }))
+    .use(publicBoardsRoutes({ config, publicBoardReadService, queueMutationService, rateLimiter }))
     .use(
       displayRoutes({
         config,
@@ -134,7 +166,7 @@ export function createApp(deps: AppDeps = {}) {
         displayStateService: deps.displayStateService,
       }),
     )
-    .use(qrRoutes({ config, db }));
+    .use(qrRoutes({ config, db, rateLimiter }));
 }
 
 export function createTestApp(deps: AppDeps = {}) {

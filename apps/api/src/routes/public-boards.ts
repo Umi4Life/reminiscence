@@ -4,15 +4,23 @@ import { Elysia } from "elysia";
 import { readPublicBoardSessionToken } from "./public-access";
 import { notFoundError, unauthorizedError, validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
-import { buildMutationRequestMeta } from "../public/audit-metadata";
+import { buildMutationRequestMeta, hashClientIp } from "../public/audit-metadata";
 import type { QueueMutationService } from "../queue/mutations";
 import type { PublicBoardReadService } from "../queue/read";
+import type { RateLimiter } from "../rate-limit/rate-limiter";
 
 export interface PublicBoardsRouteDeps {
   config: AppConfig;
   publicBoardReadService: PublicBoardReadService;
   queueMutationService: QueueMutationService;
+  rateLimiter: RateLimiter;
 }
+
+// Throttle unauthenticated public reads per source IP. These guard against
+// slug enumeration and high-frequency polling; limits are generous enough for
+// legitimate display refreshes. Tune in a later phase if real polling needs it.
+const BOARD_READ_IP_LIMIT = { scope: "board_read_ip_1m", windowSeconds: 60, maxCount: 60 } as const;
+const EVENTS_IP_LIMIT = { scope: "events_ip_1m", windowSeconds: 60, maxCount: 30 } as const;
 
 interface AddEntryBody {
   displayName?: unknown;
@@ -55,6 +63,9 @@ function requireSessionToken(headers: Headers): string {
 export function publicBoardsRoutes(deps: PublicBoardsRouteDeps) {
   return new Elysia({ name: "public-boards-routes" })
     .get("/api/public/boards/:publicSlug", async ({ params, request }) => {
+      const ipKey = hashClientIp(request, deps.config) ?? "unknown";
+      await deps.rateLimiter.checkAndIncrement({ ...BOARD_READ_IP_LIMIT, bucketKey: ipKey });
+
       const sessionToken = readPublicBoardSessionToken(request.headers);
       const board = await deps.publicBoardReadService.getBoard(params.publicSlug, sessionToken);
 
@@ -64,7 +75,10 @@ export function publicBoardsRoutes(deps: PublicBoardsRouteDeps) {
 
       return apiSuccess({ board });
     })
-    .get("/api/public/boards/:publicSlug/events", async ({ params, query }) => {
+    .get("/api/public/boards/:publicSlug/events", async ({ params, query, request }) => {
+      const ipKey = hashClientIp(request, deps.config) ?? "unknown";
+      await deps.rateLimiter.checkAndIncrement({ ...EVENTS_IP_LIMIT, bucketKey: ipKey });
+
       const limit = parseEventLimit(typeof query.limit === "string" ? query.limit : undefined);
       const events = await deps.publicBoardReadService.getEvents(params.publicSlug, limit);
 

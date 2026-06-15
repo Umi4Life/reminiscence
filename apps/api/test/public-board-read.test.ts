@@ -86,6 +86,7 @@ function createApp(publicBoardReadService = createFakePublicBoardReadService()) 
     config: testAppConfig,
     publicBoardReadService,
     checkDatabase: async () => true,
+    rateLimiter: { async checkAndIncrement() {} },
   });
 }
 

@@ -32,6 +32,7 @@ function createApp(db: Database) {
     config: testAppConfig,
     db,
     checkDatabase: async () => true,
+    rateLimiter: { async checkAndIncrement() {} },
   });
 }
 

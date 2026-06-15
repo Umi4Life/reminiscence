@@ -70,6 +70,11 @@ export interface PublicBoardReadService {
 
 const defaultEventLimit = 20;
 
+// Hard server-side ceiling so a caller-supplied `?limit=` can't force an
+// unbounded scan. The route parser already drops non-positive values; this is
+// the authoritative cap regardless of how `getEvents` is invoked.
+const maxEventLimit = 100;
+
 function allowsPublicMutation(policy: Board["publicAddPolicy"]): boolean {
   return policy === "access_code_required";
 }
@@ -180,6 +185,7 @@ export function createDbPublicBoardReadService(
     },
 
     async getEvents(publicSlug, limit = defaultEventLimit) {
+      const effectiveLimit = Math.min(limit, maxEventLimit);
       const [board] = await db
         .select({ id: boards.id })
         .from(boards)
@@ -201,11 +207,11 @@ export function createDbPublicBoardReadService(
         .from(boardEvents)
         .where(eq(boardEvents.boardId, board.id))
         .orderBy(desc(boardEvents.createdAt))
-        .limit(limit);
+        .limit(effectiveLimit);
 
       return events;
     },
   };
 }
 
-export { derivePositions };
+export { derivePositions, maxEventLimit };

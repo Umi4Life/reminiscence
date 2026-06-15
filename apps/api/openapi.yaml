@@ -1,0 +1,1895 @@
+openapi: 3.1.0
+
+info:
+  title: Queue Reminiscence API
+  description: |
+    Queue management API for arcade venues. Supports operator-managed boards where
+    participants join and leave queues anonymously using a display name.
+
+    **Authentication surfaces**
+
+    | Surface | Mechanism |
+    |---------|-----------|
+    | Admin (operators/staff) | HttpOnly cookie `qr_admin_session` set by `POST /api/admin/auth/login` |
+    | Public (participants) | HttpOnly cookie `qr_public_session` set by `POST /api/public/access/claim` |
+    | Display devices | Opaque token in URL path — `GET /api/display/{displayToken}/state` |
+
+    **Response envelope**
+
+    Every JSON endpoint returns one of two shapes:
+
+    ```json
+    { "ok": true, "data": { ... } }
+    { "ok": false, "error": { "code": "...", "message": "..." } }
+    ```
+
+    **Rate limits** are enforced per-IP and per-session. Exceeding a limit returns
+    `429` with error code `rate_limited`.
+  version: 1.0.0
+  contact:
+    name: Queue Reminiscence
+  license:
+    name: Private
+
+servers:
+  - url: http://localhost:3002
+    description: Local development
+  - url: https://api.example.com
+    description: Production (replace with actual URL)
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes.
+  - name: Admin Auth
+    description: Admin session lifecycle — login, logout, and current user context.
+  - name: Admin Organizations
+    description: List organizations accessible to the authenticated admin.
+  - name: Admin Venues
+    description: List venues accessible to the authenticated admin.
+  - name: Admin Boards
+    description: Full board CRUD and state-transition operations for admins and staff.
+  - name: Public Access
+    description: Claim and revoke a public mutation session via access code.
+  - name: Public Boards
+    description: Read board state and manage queue entries as a participant.
+  - name: QR
+    description: Render the public access QR code as SVG.
+  - name: Display
+    description: Polling endpoint for e-ink or kiosk display devices.
+
+# ---------------------------------------------------------------------------
+# Security schemes
+# ---------------------------------------------------------------------------
+components:
+  securitySchemes:
+    AdminSession:
+      type: apiKey
+      in: cookie
+      name: qr_admin_session
+      description: |
+        Opaque session token issued by `POST /api/admin/auth/login`.
+        HttpOnly, SameSite=Lax. Secure flag added when the API is served over HTTPS.
+
+    PublicSession:
+      type: apiKey
+      in: cookie
+      name: qr_public_session
+      description: |
+        Opaque mutation session token issued by `POST /api/public/access/claim`.
+        Required for add/remove queue entry operations.
+        HttpOnly, SameSite=Lax. Secure flag added when the API is served over HTTPS.
+
+  # ---------------------------------------------------------------------------
+  # Reusable schemas
+  # ---------------------------------------------------------------------------
+  schemas:
+
+    # ------ Primitives & enums -----------------------------------------------
+
+    BoardStatus:
+      type: string
+      enum: [open, closed]
+      description: Whether the board is currently accepting participants.
+
+    PublicViewPolicy:
+      type: string
+      enum: [open, access_code_required]
+      description: |
+        Controls who can view the public board page.
+        - `open` — anyone with the public slug can view
+        - `access_code_required` — viewer must hold a valid public session
+
+    PublicMutationPolicy:
+      type: string
+      enum: [access_code_required, staff_only, disabled]
+      description: |
+        Controls who can add or remove entries.
+        - `access_code_required` — participant must hold a valid public session
+        - `staff_only` — only admin/staff actions (not yet exposed via this API)
+        - `disabled` — operation is not permitted
+
+    QrRotationPolicy:
+      type: string
+      enum: [manual, scheduled]
+      description: |
+        How access credentials are rotated.
+        - `manual` — staff rotate via `POST /api/admin/boards/{boardId}/access-credentials/rotate`
+        - `scheduled` — automatic rotation on an interval (interval stored in `qrRotationIntervalMinutes`)
+
+    AdminMembershipRole:
+      type: string
+      enum: [org_owner, venue_manager, venue_staff]
+      description: |
+        RBAC role within an organization or venue.
+        - `org_owner` — full access to all venues and boards within the organization
+        - `venue_manager` — can create and manage boards within an assigned venue
+        - `venue_staff` — can operate boards (open/close/reset) within an assigned venue
+
+    BoardEventType:
+      type: string
+      enum:
+        - entry_added
+        - entry_removed
+        - board_opened
+        - board_closed
+        - board_reset
+        - access_rotated
+      description: Type of board lifecycle or queue event.
+
+    QueueEntryStatus:
+      type: string
+      enum: [active, removed]
+
+    # ------ Shared error -----------------------------------------------------
+
+    ApiError:
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - validation_error
+                - unauthorized
+                - forbidden
+                - not_found
+                - rate_limited
+                - internal_error
+              description: Machine-readable error code.
+            message:
+              type: string
+              description: Human-readable description of the error.
+      example:
+        ok: false
+        error:
+          code: unauthorized
+          message: Authentication required.
+
+    # ------ Admin auth -------------------------------------------------------
+
+    AdminIdentity:
+      type: object
+      required: [id, email, displayName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+
+    AdminMembershipSummary:
+      type: object
+      required: [id, organizationId, venueId, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        venueId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Null for `org_owner` memberships (which cover the whole org).
+            Set to a specific venue ID for `venue_manager` and `venue_staff`.
+        role:
+          $ref: '#/components/schemas/AdminMembershipRole'
+
+    AdminSessionContext:
+      type: object
+      required: [admin, memberships]
+      properties:
+        admin:
+          $ref: '#/components/schemas/AdminIdentity'
+        memberships:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminMembershipSummary'
+
+    # ------ Organization & venue --------------------------------------------
+
+    OrganizationSummary:
+      type: object
+      required: [id, slug, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          pattern: '^[a-z0-9._~-]+$'
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    VenueSummary:
+      type: object
+      required: [id, organizationId, slug, name, timezone, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          pattern: '^[a-z0-9._~-]+$'
+        name:
+          type: string
+        timezone:
+          type: string
+          description: IANA timezone identifier.
+          example: Asia/Tokyo
+        address:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ------ Board ------------------------------------------------------------
+
+    BoardSummary:
+      type: object
+      required:
+        - id
+        - venueId
+        - organizationId
+        - slug
+        - publicSlug
+        - name
+        - status
+        - publicViewPolicy
+        - publicAddPolicy
+        - publicRemovePolicy
+        - qrRotationPolicy
+        - nextSortOrder
+        - displayVersion
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        venueId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          pattern: '^[a-z0-9._~-]+$'
+          description: Unique within the venue; used in admin UI URLs.
+        publicSlug:
+          type: string
+          pattern: '^[a-z0-9._~-]+$'
+          description: Globally unique; used in public-facing URLs.
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/BoardStatus'
+        publicViewPolicy:
+          $ref: '#/components/schemas/PublicViewPolicy'
+        publicAddPolicy:
+          $ref: '#/components/schemas/PublicMutationPolicy'
+        publicRemovePolicy:
+          $ref: '#/components/schemas/PublicMutationPolicy'
+        qrRotationPolicy:
+          $ref: '#/components/schemas/QrRotationPolicy'
+        qrRotationIntervalMinutes:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Only meaningful when `qrRotationPolicy` is `scheduled`.
+        nextSortOrder:
+          type: integer
+          description: Monotonically increasing counter used for ordering queue entries.
+        displayVersion:
+          type: integer
+          description: Incremented on every mutation; used as ETag for display device polling.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBoardRequest:
+      type: object
+      required: [venueId, slug, publicSlug, name]
+      properties:
+        venueId:
+          type: string
+          format: uuid
+          description: ID of the venue this board belongs to.
+        slug:
+          type: string
+          pattern: '^[a-z0-9._~-]+$'
+          description: Must be unique within the venue.
+        publicSlug:
+          type: string
+          pattern: '^[a-z0-9._~-]+$'
+          description: Must be globally unique. Used in public board URLs.
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        publicViewPolicy:
+          $ref: '#/components/schemas/PublicViewPolicy'
+          default: open
+        publicAddPolicy:
+          $ref: '#/components/schemas/PublicMutationPolicy'
+          default: access_code_required
+        publicRemovePolicy:
+          $ref: '#/components/schemas/PublicMutationPolicy'
+          default: access_code_required
+      description: |
+        New boards are always created with `status: closed` and `qrRotationPolicy: manual`.
+        These fields must not be sent (or must match these fixed values) or the request is rejected.
+
+    PatchBoardRequest:
+      type: object
+      minProperties: 1
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9._~-]+$'
+        publicSlug:
+          type: string
+          pattern: '^[a-z0-9._~-]+$'
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        publicViewPolicy:
+          $ref: '#/components/schemas/PublicViewPolicy'
+        publicAddPolicy:
+          $ref: '#/components/schemas/PublicMutationPolicy'
+        publicRemovePolicy:
+          $ref: '#/components/schemas/PublicMutationPolicy'
+      description: |
+        At least one field is required. Fields `venueId`, `status`, `qrRotationPolicy`,
+        `qrRotationIntervalMinutes`, `displayVersion`, and `nextSortOrder` cannot be patched.
+        Changing `name`, `publicSlug`, or `publicViewPolicy` increments `displayVersion`.
+
+    BoardOperationResult:
+      type: object
+      required: [board, changed]
+      properties:
+        board:
+          $ref: '#/components/schemas/BoardSummary'
+        changed:
+          type: boolean
+          description: |
+            `false` when the board was already in the target state (e.g. opening an
+            already-open board). The response is still 200 — idempotent.
+
+    RotatedBoardAccessCredential:
+      type: object
+      required: [id, accessUrl, tokenPreview, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        accessUrl:
+          type: string
+          format: uri
+          description: Full public URL participants scan to claim a session. Contains the raw access code.
+        tokenPreview:
+          type: string
+          description: First 8 characters of the token followed by "…" — safe for staff display logs.
+          example: AbCdEfGh…
+        version:
+          type: integer
+          description: Monotonically increasing credential version counter for this board.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null means the credential does not expire.
+
+    # ------ Public board read -----------------------------------------------
+
+    PublicBoardOrganization:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+
+    PublicBoardVenue:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+
+    PublicBoardQueueEntry:
+      type: object
+      required: [id, displayName, position, sortOrder, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          description: Participant's chosen display name (1–40 characters, whitespace-normalized).
+        position:
+          type: integer
+          minimum: 1
+          description: 1-based queue position derived from `sortOrder`.
+        sortOrder:
+          type: integer
+          description: Internal monotonic sort key used to determine position.
+        createdAt:
+          type: string
+          format: date-time
+
+    PublicBoardMutationAccess:
+      type: object
+      required: [available, canAdd, canRemove]
+      properties:
+        available:
+          type: boolean
+          description: True if the caller holds a valid public session for this board.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the session expires. Null if no session is present.
+        canAdd:
+          type: boolean
+          description: True if the caller may add an entry right now (session valid + board open + add policy allows it).
+        canRemove:
+          type: boolean
+          description: True if the caller may remove an entry right now.
+
+    PublicBoardReadData:
+      type: object
+      required: [organization, venue, board, queue, mutationAccess]
+      properties:
+        organization:
+          $ref: '#/components/schemas/PublicBoardOrganization'
+        venue:
+          $ref: '#/components/schemas/PublicBoardVenue'
+        board:
+          type: object
+          required:
+            - publicSlug
+            - name
+            - status
+            - publicAddPolicy
+            - publicRemovePolicy
+            - displayVersion
+            - updatedAt
+          properties:
+            publicSlug:
+              type: string
+            name:
+              type: string
+            description:
+              type: string
+              nullable: true
+            status:
+              $ref: '#/components/schemas/BoardStatus'
+            publicAddPolicy:
+              $ref: '#/components/schemas/PublicMutationPolicy'
+            publicRemovePolicy:
+              $ref: '#/components/schemas/PublicMutationPolicy'
+            displayVersion:
+              type: integer
+            updatedAt:
+              type: string
+              format: date-time
+        queue:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicBoardQueueEntry'
+          description: Active entries in queue order (position 1 first).
+        mutationAccess:
+          $ref: '#/components/schemas/PublicBoardMutationAccess'
+
+    PublicBoardEventItem:
+      type: object
+      required: [id, type, publicMessage, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/BoardEventType'
+        publicMessage:
+          type: string
+          description: Human-readable description, e.g. "Aki joined the queue."
+        displayNameSnapshot:
+          type: string
+          nullable: true
+          description: Name of the participant involved in this event, captured at event time.
+        createdAt:
+          type: string
+          format: date-time
+
+    PublicQueueEntryResult:
+      type: object
+      required: [id, displayName, position, sortOrder, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        position:
+          type: integer
+          minimum: 1
+        sortOrder:
+          type: integer
+        status:
+          $ref: '#/components/schemas/QueueEntryStatus'
+        createdAt:
+          type: string
+          format: date-time
+
+    # ------ Display device --------------------------------------------------
+
+    DisplayQueueEntry:
+      type: object
+      required: [position, displayName]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+        displayName:
+          type: string
+
+    DisplayPublicAccess:
+      type: object
+      required: [url, qrSvgUrl, version]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Full public access URL for the current credential.
+        qrSvgUrl:
+          type: string
+          format: uri
+          description: URL to the SVG QR code image for this credential.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Credential expiry. Null if no expiry.
+        version:
+          type: integer
+          description: Credential version counter.
+
+    DisplayStatePayload:
+      type: object
+      required: [board, queue, queueLength, updatedAt, displayVersion]
+      properties:
+        board:
+          type: object
+          required: [publicSlug, name, venueName, organizationName, status]
+          properties:
+            publicSlug:
+              type: string
+            name:
+              type: string
+            venueName:
+              type: string
+            organizationName:
+              type: string
+            status:
+              $ref: '#/components/schemas/BoardStatus'
+        queue:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisplayQueueEntry'
+          description: Active queue entries in position order.
+        queueLength:
+          type: integer
+          minimum: 0
+        publicAccess:
+          allOf:
+            - $ref: '#/components/schemas/DisplayPublicAccess'
+          nullable: true
+          description: |
+            Present only when the display device has `canViewPublicAccessPayload` permission
+            and the board has an active access credential. Null otherwise.
+        updatedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of the last board update.
+        displayVersion:
+          type: integer
+          description: Matches the board's `displayVersion`; used for ETag polling.
+
+  # ---------------------------------------------------------------------------
+  # Reusable responses
+  # ---------------------------------------------------------------------------
+  responses:
+    ValidationError:
+      description: Request body or parameters failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            ok: false
+            error:
+              code: validation_error
+              message: Display name is required.
+
+    Unauthorized:
+      description: No valid session cookie was provided.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            ok: false
+            error:
+              code: unauthorized
+              message: Authentication required.
+
+    Forbidden:
+      description: The authenticated user does not have permission to perform this action.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            ok: false
+            error:
+              code: forbidden
+              message: You do not have permission to perform this action.
+
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            ok: false
+            error:
+              code: not_found
+              message: Resource not found.
+
+    RateLimited:
+      description: Too many requests — back off and retry.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until the rate limit window resets (not always present).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            ok: false
+            error:
+              code: rate_limited
+              message: Too many requests. Try again shortly.
+
+    InternalError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+paths:
+
+  # ---------- Health ---------------------------------------------------------
+
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Returns `{ ok: true }` if the process is running. No DB check.
+      operationId: healthz
+      responses:
+        '200':
+          description: Process is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+              example:
+                ok: true
+
+  /readyz:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: Returns `{ ok: true }` only when the database is reachable.
+      operationId: readyz
+      responses:
+        '200':
+          description: Service is ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+              example:
+                ok: true
+        '503':
+          description: Database is unreachable — not ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [false]
+              example:
+                ok: false
+
+  # ---------- Admin Auth ----------------------------------------------------
+
+  /api/admin/auth/login:
+    post:
+      tags: [Admin Auth]
+      summary: Admin login
+      description: |
+        Authenticate with email and password. On success, sets the `qr_admin_session`
+        HttpOnly cookie and returns the session context.
+
+        **Rate limits:** 10 attempts per 5 min per IP; 8 attempts per 15 min per email.
+        Timing is equalized between missing-account and wrong-password responses.
+      operationId: adminLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+            example:
+              email: operator@example.com
+              password: supersecret
+      responses:
+        '200':
+          description: Login successful. Session cookie set in `Set-Cookie`.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: "`qr_admin_session=<token>; Path=/; HttpOnly; SameSite=Lax; [Secure]`"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AdminSessionContext'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/admin/auth/logout:
+    post:
+      tags: [Admin Auth]
+      summary: Admin logout
+      description: |
+        Revokes the current admin session and clears the session cookie.
+        Safe to call even without a valid session (no-op).
+      operationId: adminLogout
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Session revoked (or was already absent).
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Expired cookie to clear the browser session.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [loggedOut]
+                    properties:
+                      loggedOut:
+                        type: boolean
+                        enum: [true]
+              example:
+                ok: true
+                data:
+                  loggedOut: true
+
+  /api/admin/me:
+    get:
+      tags: [Admin Auth]
+      summary: Current admin context
+      description: Returns the identity and membership list for the authenticated admin.
+      operationId: adminMe
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Current session context.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AdminSessionContext'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------- Admin Organizations -------------------------------------------
+
+  /api/admin/organizations:
+    get:
+      tags: [Admin Organizations]
+      summary: List accessible organizations
+      description: Returns all organizations the authenticated admin has any membership in.
+      operationId: listOrganizations
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Organizations list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [organizations]
+                    properties:
+                      organizations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrganizationSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------- Admin Venues --------------------------------------------------
+
+  /api/admin/venues:
+    get:
+      tags: [Admin Venues]
+      summary: List accessible venues
+      description: |
+        Returns venues the authenticated admin can access:
+        - `org_owner` → all venues in their organization(s)
+        - `venue_manager` / `venue_staff` → only their assigned venue(s)
+      operationId: listVenues
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Venues list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [venues]
+                    properties:
+                      venues:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VenueSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------- Admin Boards --------------------------------------------------
+
+  /api/admin/boards:
+    get:
+      tags: [Admin Boards]
+      summary: List accessible boards
+      description: Returns all boards the authenticated admin can see (filtered by RBAC).
+      operationId: listBoards
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Boards list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [boards]
+                    properties:
+                      boards:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/BoardSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Admin Boards]
+      summary: Create board
+      description: |
+        Creates a new queue board in the specified venue.
+
+        The board is always created with `status: closed`. To open it, use
+        `POST /api/admin/boards/{boardId}/open`.
+
+        Requires `venue_manager` or `org_owner` role for the target venue.
+      operationId: createBoard
+      security:
+        - AdminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBoardRequest'
+            example:
+              venueId: 123e4567-e89b-12d3-a456-426614174000
+              slug: rhythm-game-a
+              publicSlug: arcadia-rhythm-a
+              name: Rhythm Game A
+              description: SDVX corner, cabinet on the left
+              publicViewPolicy: open
+              publicAddPolicy: access_code_required
+              publicRemovePolicy: access_code_required
+      responses:
+        '200':
+          description: Board created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [board]
+                    properties:
+                      board:
+                        $ref: '#/components/schemas/BoardSummary'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Venue not found (or not accessible to this admin).
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/boards/{boardId}:
+    parameters:
+      - name: boardId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: UUID of the board.
+
+    get:
+      tags: [Admin Boards]
+      summary: Get board
+      description: Returns the full board summary. Requires at least `venue_staff` for the board's venue.
+      operationId: getBoard
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Board details.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [board]
+                    properties:
+                      board:
+                        $ref: '#/components/schemas/BoardSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Admin Boards]
+      summary: Update board
+      description: |
+        Partially updates a board's metadata and policies.
+
+        Requires `venue_manager` or `org_owner`. Fields `status`, `venueId`,
+        `qrRotationPolicy`, `qrRotationIntervalMinutes`, `displayVersion`, and
+        `nextSortOrder` cannot be patched via this endpoint.
+
+        Changing `name`, `publicSlug`, or `publicViewPolicy` increments `displayVersion`,
+        triggering a cache-bust on polling display devices.
+      operationId: updateBoard
+      security:
+        - AdminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchBoardRequest'
+            example:
+              name: Rhythm Game A (updated)
+              description: Now on the right cabinet
+      responses:
+        '200':
+          description: Board updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [board]
+                    properties:
+                      board:
+                        $ref: '#/components/schemas/BoardSummary'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Admin Boards]
+      summary: Delete board
+      description: |
+        Permanently deletes the board and all associated data (entries, events, sessions,
+        credentials, display devices). This action is **irreversible**.
+
+        Requires `venue_manager` or `org_owner`.
+      operationId: deleteBoard
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Board deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [deleted]
+                    properties:
+                      deleted:
+                        type: boolean
+                        enum: [true]
+              example:
+                ok: true
+                data:
+                  deleted: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/boards/{boardId}/open:
+    post:
+      tags: [Admin Boards]
+      summary: Open board
+      description: |
+        Transitions the board to `status: open`, allowing participants to join the queue.
+        Idempotent — opening an already-open board returns `changed: false`.
+
+        Requires `venue_staff`, `venue_manager`, or `org_owner`.
+      operationId: openBoard
+      security:
+        - AdminSession: []
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Board opened (or was already open).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/BoardOperationResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/boards/{boardId}/close:
+    post:
+      tags: [Admin Boards]
+      summary: Close board
+      description: |
+        Transitions the board to `status: closed`. Participants can no longer add or
+        remove entries while the board is closed. Idempotent.
+
+        Requires `venue_staff`, `venue_manager`, or `org_owner`.
+      operationId: closeBoard
+      security:
+        - AdminSession: []
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Board closed (or was already closed).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/BoardOperationResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/boards/{boardId}/reset:
+    post:
+      tags: [Admin Boards]
+      summary: Reset board queue
+      description: |
+        Soft-removes all active queue entries, clearing the queue. The board remains
+        in its current state (open or closed). All removed entries are preserved in
+        the audit log.
+
+        Requires `venue_staff`, `venue_manager`, or `org_owner`.
+      operationId: resetBoard
+      security:
+        - AdminSession: []
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Queue cleared.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/BoardOperationResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/boards/{boardId}/access-credentials/rotate:
+    post:
+      tags: [Admin Boards]
+      summary: Rotate QR access credential
+      description: |
+        Generates a new access credential for the board, immediately revoking all
+        previous credentials and invalidating all active public sessions minted from them.
+
+        Returns the new access URL (containing the raw access code) and a redacted
+        token preview for staff logs. **The raw access code is only returned once** —
+        store or display the `accessUrl` before it is lost.
+
+        Requires `venue_staff`, `venue_manager`, or `org_owner`.
+      operationId: rotateBoardAccessCredential
+      security:
+        - AdminSession: []
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Credential rotated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [board, credential]
+                    properties:
+                      board:
+                        $ref: '#/components/schemas/BoardSummary'
+                      credential:
+                        $ref: '#/components/schemas/RotatedBoardAccessCredential'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ---------- Public Access -------------------------------------------------
+
+  /api/public/access/claim:
+    post:
+      tags: [Public Access]
+      summary: Claim public mutation session
+      description: |
+        Exchange a QR-scanned access code for a public session cookie, which authorizes
+        queue mutations on the associated board for the session lifetime.
+
+        On success, sets the `qr_public_session` HttpOnly cookie and returns board info
+        and the session expiry. On failure (expired/revoked credential), returns
+        `claimed: false` with a reason — **no error status code is used**, the response
+        is always 200.
+
+        **Rate limits:** 10 claims per min per IP; 40 per 10 min per IP.
+      operationId: claimPublicAccess
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accessCode]
+              properties:
+                accessCode:
+                  type: string
+                  minLength: 1
+                  description: The raw access code from a QR scan or direct URL parameter.
+            example:
+              accessCode: AbCdEfGhIjKlMnOpQrStUvWxYz012345
+      responses:
+        '200':
+          description: |
+            Always 200. Check `data.claimed` to determine whether a session was granted.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: "`qr_public_session=<token>; ...` — only present when `claimed: true`."
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    oneOf:
+                      - title: Claimed
+                        type: object
+                        required: [claimed, board, mutationAccessExpiresAt]
+                        properties:
+                          claimed:
+                            type: boolean
+                            enum: [true]
+                          board:
+                            type: object
+                            required: [id, publicSlug]
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              publicSlug:
+                                type: string
+                          mutationAccessExpiresAt:
+                            type: string
+                            format: date-time
+                            description: When the session expires.
+                      - title: Failed
+                        type: object
+                        required: [claimed, reason, message]
+                        properties:
+                          claimed:
+                            type: boolean
+                            enum: [false]
+                          reason:
+                            type: string
+                            enum: [expired, revoked, invalid]
+                          board:
+                            type: object
+                            nullable: true
+                            description: Present for `expired` and `revoked` reasons (not `invalid`).
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              publicSlug:
+                                type: string
+                          message:
+                            type: string
+                    discriminator:
+                      propertyName: claimed
+              examples:
+                success:
+                  summary: Session claimed
+                  value:
+                    ok: true
+                    data:
+                      claimed: true
+                      board:
+                        id: 123e4567-e89b-12d3-a456-426614174000
+                        publicSlug: arcadia-rhythm-a
+                      mutationAccessExpiresAt: "2026-06-15T10:00:00.000Z"
+                expired:
+                  summary: Credential expired
+                  value:
+                    ok: true
+                    data:
+                      claimed: false
+                      reason: expired
+                      board:
+                        id: 123e4567-e89b-12d3-a456-426614174000
+                        publicSlug: arcadia-rhythm-a
+                      message: This queue link is no longer active for editing.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/public/access/logout:
+    post:
+      tags: [Public Access]
+      summary: Revoke public session
+      description: |
+        Revokes the current public session and clears the session cookie.
+        Safe to call without a valid session (no-op).
+      operationId: publicLogout
+      security:
+        - PublicSession: []
+      responses:
+        '200':
+          description: Session revoked.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Expired cookie to clear the browser session.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [loggedOut]
+                    properties:
+                      loggedOut:
+                        type: boolean
+                        enum: [true]
+              example:
+                ok: true
+                data:
+                  loggedOut: true
+
+  # ---------- Public Boards -------------------------------------------------
+
+  /api/public/boards/{publicSlug}:
+    parameters:
+      - name: publicSlug
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z0-9._~-]+$'
+        description: The board's globally unique public slug.
+
+    get:
+      tags: [Public Boards]
+      summary: Get board state
+      description: |
+        Returns the current board state, active queue, and the caller's mutation access
+        status. Optionally enhanced with session info when the `qr_public_session` cookie
+        is present.
+
+        **Rate limit:** 60 reads per min per IP.
+      operationId: getPublicBoard
+      security:
+        - {}
+        - PublicSession: []
+      responses:
+        '200':
+          description: Board state.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [board]
+                    properties:
+                      board:
+                        $ref: '#/components/schemas/PublicBoardReadData'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/public/boards/{publicSlug}/events:
+    get:
+      tags: [Public Boards]
+      summary: Get recent board events
+      description: |
+        Returns a reverse-chronological list of recent board events (joins, removals,
+        opens, closes, resets, access rotations).
+
+        **Rate limit:** 30 requests per min per IP.
+      operationId: getPublicBoardEvents
+      parameters:
+        - name: publicSlug
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z0-9._~-]+$'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of events to return. Clamped to 100.
+      responses:
+        '200':
+          description: Event list (newest first).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [events]
+                    properties:
+                      events:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PublicBoardEventItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/public/boards/{publicSlug}/entries:
+    post:
+      tags: [Public Boards]
+      summary: Add queue entry
+      description: |
+        Adds the caller's display name to the queue. Requires a valid `qr_public_session`
+        cookie for this board.
+
+        Display names are trimmed and whitespace-collapsed. Valid length is 1–40 characters
+        after normalization.
+
+        **Rate limits (per session+board):** 3 adds per min, 10 per 10 min.
+        **Rate limits (per IP+board):** 20 adds per 10 min.
+        **Board-wide limit:** 30 mutations per min across all participants.
+      operationId: addQueueEntry
+      security:
+        - PublicSession: []
+      parameters:
+        - name: publicSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                  description: The name to display in the queue. Whitespace is trimmed and collapsed.
+            example:
+              displayName: Aki
+      responses:
+        '200':
+          description: Entry added to the queue.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [entry]
+                    properties:
+                      entry:
+                        $ref: '#/components/schemas/PublicQueueEntryResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Board is closed or add policy does not allow public adds.
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/public/boards/{publicSlug}/entries/{entryId}/remove:
+    post:
+      tags: [Public Boards]
+      summary: Remove queue entry
+      description: |
+        Soft-removes an entry from the queue. The entry is preserved in the audit log
+        with `status: removed`.
+
+        Requires a valid `qr_public_session` cookie for this board and the board's
+        `publicRemovePolicy` must be `access_code_required`.
+
+        **Rate limits (per session+board):** 5 removes per min, 20 per 10 min.
+        **Rate limits (per IP+board):** 40 removes per 10 min.
+        **Board-wide limit:** 30 mutations per min across all participants.
+      operationId: removeQueueEntry
+      security:
+        - PublicSession: []
+      parameters:
+        - name: publicSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID of the queue entry to remove.
+      responses:
+        '200':
+          description: Entry removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [entryId, removed]
+                    properties:
+                      entryId:
+                        type: string
+                        format: uuid
+                      removed:
+                        type: boolean
+                        enum: [true]
+              example:
+                ok: true
+                data:
+                  entryId: 123e4567-e89b-12d3-a456-426614174000
+                  removed: true
+        '400':
+          description: Entry is already removed.
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Board is closed or remove policy does not allow public removals.
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ---------- QR ------------------------------------------------------------
+
+  /api/qr/{accessCode}.svg:
+    get:
+      tags: [QR]
+      summary: Render QR code as SVG
+      description: |
+        Generates and returns a QR code SVG encoding the public access URL for the
+        given access code. Returns 404 if the credential is inactive, revoked, or expired.
+
+        **Rate limit:** 30 requests per min per IP.
+
+        The response is `Cache-Control: no-store` because the QR code may be rotated
+        at any time.
+      operationId: renderQrSvg
+      parameters:
+        - name: accessCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
+          description: The raw access code token (same value embedded in the access URL).
+      responses:
+        '200':
+          description: SVG QR code image.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: ['no-store']
+            Content-Type:
+              schema:
+                type: string
+                enum: ['image/svg+xml']
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ---------- Display -------------------------------------------------------
+
+  /api/display/{displayToken}/state:
+    get:
+      tags: [Display]
+      summary: Display device state
+      description: |
+        Returns the current board state optimized for e-ink or kiosk display rendering.
+        Intended for polling display devices; supports `ETag` / `If-None-Match` for
+        efficient change detection.
+
+        Authentication is via an opaque `displayToken` embedded in the URL path —
+        no cookie is required. The token is provisioned out-of-band by an admin.
+
+        When `If-None-Match` matches the current `ETag`, the server returns `304 Not Modified`
+        with no body. Poll on `displayVersion` or the `ETag` header.
+
+        The `publicAccess` field is only populated when the display device has the
+        `canViewPublicAccessPayload` permission flag set in the database.
+      operationId: getDisplayState
+      parameters:
+        - name: displayToken
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Opaque display device token provisioned by an admin.
+        - name: If-None-Match
+          in: header
+          required: false
+          schema:
+            type: string
+          description: ETag from a previous response. Returns 304 if `displayVersion` has not changed.
+      responses:
+        '200':
+          description: Current display state.
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: '"board-display-{displayVersion}" — use with If-None-Match for polling.'
+            Cache-Control:
+              schema:
+                type: string
+                enum: ['no-store']
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [state]
+                    properties:
+                      state:
+                        $ref: '#/components/schemas/DisplayStatePayload'
+        '304':
+          description: Board has not changed since the supplied ETag.
+        '401':
+          description: Display token not found.
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Display device has been revoked.
+          $ref: '#/components/responses/Forbidden'

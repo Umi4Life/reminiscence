@@ -1,6 +1,5 @@
 /*
  * Global base styles (reset + document defaults) shared by both frontends.
- * Previously duplicated in each app's routes/+layout.svelte.
  */
 * {
   box-sizing: border-box;
@@ -13,15 +12,12 @@ body {
   font-size: var(--font-size-base);
   line-height: var(--line-height);
   color: var(--color-text);
-  background:
-    radial-gradient(at 18% -5%, rgba(255, 45, 160, 0.18), transparent 45%),
-    radial-gradient(at 85% 10%, rgba(41, 224, 255, 0.12), transparent 45%),
-    radial-gradient(at 50% 110%, rgba(157, 77, 255, 0.16), transparent 55%), var(--color-bg);
+  background: var(--bg-glow), var(--color-bg);
   background-attachment: fixed;
   min-height: 100vh;
 }
 
-/* Faint digital grid overlay */
+/* Faint digital grid overlay (very subtle glitchcore texture) */
 body::before {
   content: "";
   position: fixed;
@@ -29,9 +25,9 @@ body::before {
   pointer-events: none;
   z-index: -1;
   background-image:
-    linear-gradient(rgba(157, 77, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(157, 77, 255, 0.05) 1px, transparent 1px);
-  background-size: 44px 44px;
+    linear-gradient(var(--bg-grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid-color) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
 
 a {

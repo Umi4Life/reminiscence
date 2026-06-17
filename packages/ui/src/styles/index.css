@@ -3,7 +3,6 @@
  * Apps import this once (e.g. in routes/+layout.svelte):
  *   import "@queue-reminiscence/ui/styles.css";
  */
-@import "./fonts.css";
 @import "./tokens.css";
 @import "./base.css";
 @import "./components.css";

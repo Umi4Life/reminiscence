@@ -25,7 +25,7 @@
 
 <main class="login-page">
   <div class="login-card">
-    <h1 class="display-title">Admin Login</h1>
+    <h1>Admin Login</h1>
 
     {#if error}
       <p class="error">{error}</p>

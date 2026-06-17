@@ -2,18 +2,104 @@
  * Design tokens for queue-reminiscence frontends.
  * Single source of truth for the palette, typography, and shape values
  * shared by apps/admin-web and apps/public-web.
+ *
+ * Flat design using the Re:miniscence jacket palette (magenta / cyan / violet).
+ * Light is the :root default; dark applies under [data-theme="dark"]. The
+ * resolved theme is set on <html> by an inline script + the theme toggle, so
+ * "system" preference is handled in JS (no prefers-color-scheme rules here).
  */
 :root {
+  color-scheme: light;
+
+  /* Interactive — blue for additive/edit actions (distinct from destructive) */
+  --color-primary: #1e6fe0; /* azure (additive/primary buttons) */
+  --color-primary-hover: #1a5fc4;
+  --color-accent: #0a93b8; /* cyan-teal */
+  --color-accent-hover: #0b7e9e;
+  --color-violet: #7c3aed;
+  --color-danger: #d61f4e; /* rose (destructive: close/delete) */
+  --color-danger-hover: #b81842;
+
+  /* Brand accent — magenta (Grace / Re:miniscence), used for titles only */
+  --color-brand: #d6147f;
+
+  /* Text */
+  --color-text: #1b1226;
+  --color-text-strong: #3a2b50;
+  --color-text-muted: #6b5b82;
+  --color-text-faint: #998aad;
+
+  /* Surfaces */
+  --color-bg: #f7f3fb;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f1ecf7;
+
+  /* Borders */
+  --color-border: #e6def1;
+  --color-border-strong: #d3c7e6;
+
+  /* Text color on filled (primary/danger) buttons */
+  --color-on-primary: #ffffff;
+
+  /* Overlay + shadows */
+  --color-overlay: rgba(20, 8, 30, 0.45);
+  --shadow-md: 0 1px 3px rgba(20, 8, 40, 0.08);
+  --shadow-lg: 0 12px 32px rgba(20, 8, 40, 0.18);
+
+  /* Status — open = cyan/teal */
+  --color-success-bg: rgba(10, 147, 184, 0.12);
+  --color-success-bg-soft: rgba(10, 147, 184, 0.06);
+  --color-success-text: #07687f;
+  --color-success-border: rgba(10, 147, 184, 0.4);
+
+  /* Status — closed/error = rose */
+  --color-error-bg: rgba(214, 31, 78, 0.1);
+  --color-error-bg-soft: rgba(214, 31, 78, 0.05);
+  --color-error-text: #b81842;
+  --color-error-border: rgba(214, 31, 78, 0.35);
+
+  /* Info box (admin rotate-QR result) — violet */
+  --color-info-bg: rgba(124, 58, 237, 0.1);
+  --color-info-border: rgba(124, 58, 237, 0.35);
+  --color-info-text: #6b30c9;
+  --color-info-text-soft: #8a78a8;
+
+  /* Focus ring */
+  --ring-primary: 0 0 0 3px rgba(30, 111, 224, 0.25);
+
+  /* Background ambience — very subtle glitchcore glow + digital grid */
+  --bg-glow:
+    radial-gradient(at 18% -5%, rgba(214, 20, 127, 0.05), transparent 45%),
+    radial-gradient(at 85% 8%, rgba(10, 147, 184, 0.045), transparent 45%),
+    radial-gradient(at 50% 110%, rgba(124, 58, 237, 0.045), transparent 55%);
+  --bg-grid-color: rgba(124, 58, 237, 0.045);
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-size-base: 16px;
+  --line-height: 1.5;
+
+  /* Radii */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-pill: 9999px;
+}
+
+:root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Brand / interactive — Re:miniscence neon */
-  --color-primary: #ff2da0; /* hot magenta-pink (Grace) */
-  --color-primary-hover: #ff5cb8;
-  --color-accent: #29e0ff; /* electric cyan */
+  /* Interactive — bright azure for additive/edit actions */
+  --color-primary: #1f9bff;
+  --color-primary-hover: #5bb8ff;
+  --color-accent: #29e0ff;
   --color-accent-hover: #6febff;
-  --color-violet: #9d4dff; /* mid violet */
-  --color-danger: #ff3b66; /* neon coral-red */
+  --color-violet: #9d4dff;
+  --color-danger: #ff3b66; /* coral (destructive: close/delete) */
   --color-danger-hover: #ff6685;
+
+  /* Brand accent — neon magenta (Grace), used for titles only */
+  --color-brand: #ff2da0;
 
   /* Text — lavender-tinted on dark */
   --color-text: #f6ecff;
@@ -24,53 +110,45 @@
   /* Surfaces — deep violet-black */
   --color-bg: #0c0614;
   --color-surface: #170e26;
-  --color-surface-raised: #21163a; /* secondary buttons / raised fills */
+  --color-surface-raised: #21163a;
 
-  /* Borders — low-opacity neon violet */
+  /* Borders */
   --color-border: #2e1f47;
   --color-border-strong: #46306b;
 
-  /* Text color on neon fills (buttons) */
-  --color-on-primary: #14001a;
+  /* Text color on filled buttons */
+  --color-on-primary: #03121f;
 
-  /* Overlay + shadows + glow */
+  /* Overlay + shadows */
   --color-overlay: rgba(6, 2, 14, 0.72);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 45, 160, 0.12);
-  --glow-primary: 0 0 18px rgba(255, 45, 160, 0.45);
-  --glow-cyan: 0 0 18px rgba(41, 224, 255, 0.4);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.6);
 
-  /* Status — open = cyan/teal neon */
+  /* Status — open = cyan */
   --color-success-bg: rgba(41, 224, 255, 0.14);
   --color-success-bg-soft: rgba(41, 224, 255, 0.08);
   --color-success-text: #6ff0ff;
   --color-success-border: rgba(41, 224, 255, 0.45);
 
-  /* Status — closed/error = neon coral */
+  /* Status — closed/error = coral */
   --color-error-bg: rgba(255, 59, 102, 0.15);
   --color-error-bg-soft: rgba(255, 59, 102, 0.08);
   --color-error-text: #ff8aa3;
   --color-error-border: rgba(255, 59, 102, 0.45);
 
-  /* Info box (admin rotate-QR result) — violet/cyan */
+  /* Info box — violet */
   --color-info-bg: rgba(157, 77, 255, 0.12);
   --color-info-border: rgba(157, 77, 255, 0.4);
   --color-info-text: #c7a3ff;
   --color-info-text-soft: #a892c4;
 
-  /* Focus ring — magenta */
-  --ring-primary: 0 0 0 3px rgba(255, 45, 160, 0.35);
+  /* Focus ring — azure */
+  --ring-primary: 0 0 0 3px rgba(31, 155, 255, 0.4);
 
-  /* Typography */
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-display: "UnifrakturCook", "Cinzel", Georgia, serif;
-  --font-chalk: "Patrick Hand", "Comic Sans MS", cursive;
-  --font-size-base: 16px;
-  --line-height: 1.5;
-
-  /* Radii */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-pill: 9999px;
+  /* Background ambience — very subtle glitchcore glow + digital grid */
+  --bg-glow:
+    radial-gradient(at 18% -5%, rgba(255, 45, 160, 0.07), transparent 45%),
+    radial-gradient(at 85% 8%, rgba(41, 224, 255, 0.05), transparent 45%),
+    radial-gradient(at 50% 110%, rgba(157, 77, 255, 0.06), transparent 55%);
+  --bg-grid-color: rgba(157, 77, 255, 0.04);
 }

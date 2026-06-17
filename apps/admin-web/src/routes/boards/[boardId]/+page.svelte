@@ -40,7 +40,7 @@
       <div class="header-inner">
         <div>
           <a href="/" class="back-link">← Dashboard</a>
-          <h1 class="board-name display-title">{board.name}</h1>
+          <h1 class="board-name">{board.name}</h1>
           <p class="board-slug">{board.publicSlug}</p>
         </div>
         <span class="status-badge status-{board.status}">
@@ -120,8 +120,9 @@
   }
 
   .board-name {
-    font-size: 1.625rem;
+    font-size: 1.5rem;
     font-weight: 700;
+    color: var(--color-brand);
   }
 
   .board-slug {

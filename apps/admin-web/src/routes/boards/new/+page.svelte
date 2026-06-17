@@ -80,7 +80,7 @@
     <div class="header-inner">
       <div>
         <a href="/" class="back-link">← Dashboard</a>
-        <h1 class="page-title display-title">New board</h1>
+        <h1 class="page-title">New board</h1>
       </div>
     </div>
   </header>
@@ -200,8 +200,9 @@
   }
 
   .page-title {
-    font-size: 1.625rem;
+    font-size: 1.5rem;
     font-weight: 700;
+    color: var(--color-text);
   }
 
   .content {

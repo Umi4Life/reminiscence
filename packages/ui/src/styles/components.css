@@ -11,7 +11,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 1.25rem;
-  box-shadow: var(--shadow-md);
 }
 
 .card {
@@ -19,7 +18,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 2rem 1.5rem;
-  box-shadow: var(--shadow-md);
 }
 
 /* Uppercase section heading */
@@ -30,22 +28,6 @@
   letter-spacing: 0.05em;
   color: var(--color-text-strong);
   margin-bottom: 1rem;
-}
-
-/* Gothic gradient display title (echoes the Re:miniscence jacket logo) */
-.display-title {
-  font-family: var(--font-display);
-  background: linear-gradient(
-    90deg,
-    var(--color-primary),
-    var(--color-violet),
-    var(--color-accent)
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 12px rgba(255, 45, 160, 0.4));
-  letter-spacing: 0.02em;
 }
 
 /* Status badge color variants — base .status-badge sizing stays per component */

@@ -67,21 +67,19 @@
   <div class="page">
     <header class="header">
       <p class="venue-name">{venue.name}</p>
-      <h1 class="board-name display-title">{board.name}</h1>
+      <h1 class="board-name">{board.name}</h1>
       <span class="status-badge status-{board.status}">
         {board.status === "open" ? "Open" : "Closed"}
       </span>
     </header>
 
     <main class="content">
-      <section class="section blackboard">
-        <div class="board-surface">
-          <h2 class="section-title">Queue</h2>
-          <QueueList entries={queue} canRemove={mutationAccess.canRemove} onRemoveRequest={requestRemove} />
-          {#if removeError}
-            <p class="error-msg">{removeError}</p>
-          {/if}
-        </div>
+      <section class="section">
+        <h2 class="section-title">Queue</h2>
+        <QueueList entries={queue} canRemove={mutationAccess.canRemove} onRemoveRequest={requestRemove} />
+        {#if removeError}
+          <p class="error-msg">{removeError}</p>
+        {/if}
       </section>
 
       {#if mutationAccess.canAdd}
@@ -152,8 +150,9 @@
   }
 
   .board-name {
-    font-size: 2rem;
+    font-size: 1.75rem;
     font-weight: 700;
+    color: var(--color-brand);
     margin-bottom: 0.5rem;
   }
 
@@ -177,110 +176,5 @@
     margin-top: 0.75rem;
     color: var(--color-danger);
     font-size: 0.875rem;
-  }
-
-  /* ── Blackboard treatment for the Queue panel ──────────────────────────
-     A neutral charcoal slate inside a wooden frame, sitting within the
-     surrounding neon theme. Child QueueList markup is reached via :global. */
-  .section.blackboard {
-    /* Slim dark-walnut frame: vertical grain over a muted dark wood gradient
-       that sits with the surrounding neon-violet theme. */
-    background:
-      repeating-linear-gradient(
-        90deg,
-        rgba(0, 0, 0, 0.16) 0,
-        rgba(0, 0, 0, 0.16) 2px,
-        rgba(255, 255, 255, 0.02) 2px,
-        rgba(255, 255, 255, 0.02) 5px
-      ),
-      linear-gradient(150deg, #43301e 0%, #281a10 46%, #382617 72%, #1d120a 100%);
-    border: none;
-    border-radius: 6px;
-    padding: 7px;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      inset 0 -1px 2px rgba(0, 0, 0, 0.5),
-      var(--shadow-md);
-  }
-
-  .board-surface {
-    position: relative;
-    border-radius: 4px;
-    padding: 1.25rem 1.25rem 1rem;
-    /* Neutral charcoal slate with soft chalk-smudge clouds */
-    background:
-      radial-gradient(ellipse at 30% 22%, rgba(255, 255, 255, 0.07), transparent 55%),
-      radial-gradient(ellipse at 78% 82%, rgba(255, 255, 255, 0.05), transparent 50%),
-      #26282b;
-    box-shadow:
-      inset 0 0 0 1px rgba(0, 0, 0, 0.6),
-      inset 0 0 55px rgba(0, 0, 0, 0.7);
-  }
-
-  /* Faint chalk-dust speckle */
-  .board-surface::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    border-radius: 4px;
-    background-image:
-      radial-gradient(rgba(255, 255, 255, 0.05) 0.5px, transparent 0.5px),
-      radial-gradient(rgba(255, 255, 255, 0.035) 0.5px, transparent 0.5px);
-    background-size: 7px 7px, 11px 11px;
-    background-position: 0 0, 3px 5px;
-    opacity: 0.5;
-  }
-
-  .board-surface .section-title {
-    font-family: var(--font-chalk);
-    font-size: 1.625rem;
-    font-weight: 400;
-    text-transform: none;
-    letter-spacing: 0.03em;
-    color: #f1f3f0;
-    text-shadow: 0 0 2px rgba(255, 255, 255, 0.35);
-    border-bottom: 2px solid rgba(241, 243, 240, 0.28);
-    padding-bottom: 0.4rem;
-    margin-bottom: 1rem;
-  }
-
-  /* QueueList internals (scoped in the child component) */
-  .board-surface :global(.entry) {
-    background: rgba(255, 255, 255, 0.022);
-    border: 1px dashed rgba(241, 243, 240, 0.2);
-    border-radius: 3px;
-  }
-
-  .board-surface :global(.position) {
-    font-family: var(--font-chalk);
-    font-size: 1.35rem;
-    color: #a9d4ff;
-    text-shadow: 0 0 3px rgba(120, 180, 255, 0.3);
-  }
-
-  .board-surface :global(.name) {
-    font-family: var(--font-chalk);
-    font-size: 1.35rem;
-    color: #f4f5f2;
-    text-shadow: 0 0 2px rgba(255, 255, 255, 0.3);
-  }
-
-  .board-surface :global(.remove-btn) {
-    font-family: var(--font-chalk);
-    font-size: 1.0625rem;
-    color: #ffc2d2;
-    border: 1px dashed rgba(255, 138, 163, 0.55);
-    background: none;
-  }
-
-  .board-surface :global(.remove-btn:hover) {
-    background: rgba(255, 138, 163, 0.12);
-  }
-
-  .board-surface :global(.empty) {
-    font-family: var(--font-chalk);
-    font-size: 1.25rem;
-    color: #d7dad6;
   }
 </style>

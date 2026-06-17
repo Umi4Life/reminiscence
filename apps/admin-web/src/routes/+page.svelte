@@ -39,7 +39,7 @@
     <div class="header-inner">
       <div>
         <p class="header-label">Admin</p>
-        <h1 class="header-name display-title">{data.session?.admin.displayName ?? ""}</h1>
+        <h1 class="header-name">{data.session?.admin.displayName ?? ""}</h1>
       </div>
       <button class="logout-btn" onclick={doLogout} disabled={logoutBusy}>
         {logoutBusy ? "Logging out…" : "Log out"}
@@ -116,6 +116,7 @@
   .header-name {
     font-size: 1.375rem;
     font-weight: 600;
+    color: var(--color-text);
   }
 
   .logout-btn {

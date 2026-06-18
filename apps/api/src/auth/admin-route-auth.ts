@@ -21,7 +21,11 @@ function parseCookieHeader(header: string | null): Map<string, string> {
     const value = trimmed.slice(separatorIndex + 1).trim();
 
     if (name.length > 0) {
-      cookies.set(name, decodeURIComponent(value));
+      try {
+        cookies.set(name, decodeURIComponent(value));
+      } catch {
+        cookies.set(name, value);
+      }
     }
   }
 

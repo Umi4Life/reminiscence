@@ -9,7 +9,7 @@
   } from "$lib/api";
   import ConfirmDialog from "./ConfirmDialog.svelte";
   import { copyTextToClipboard } from "$lib/copy-to-clipboard";
-  import { PUBLIC_APP_URL } from "$lib/env";
+  import { API_BASE_URL, PUBLIC_APP_URL } from "$lib/env";
 
   let {
     board,
@@ -147,7 +147,7 @@
 
   function openQrInNewTab() {
     if (rotateAccessCode) {
-      window.open(`/api/qr/${rotateAccessCode}.svg`, "_blank");
+      window.open(`${API_BASE_URL}/qr/${rotateAccessCode}.svg`, "_blank");
     }
   }
 </script>
@@ -194,7 +194,7 @@
       {#if rotateAccessCode}
         <img
           class="rotate-qr"
-          src="/api/qr/{rotateAccessCode}.svg"
+          src="{API_BASE_URL}/qr/{rotateAccessCode}.svg"
           alt="Queue access QR"
           width="200"
           height="200"
@@ -209,7 +209,7 @@
           </button>
           <a
             class="btn btn-secondary rotate-qr-btn"
-            href="/api/qr/{rotateAccessCode}.svg"
+            href="{API_BASE_URL}/qr/{rotateAccessCode}.svg"
             download="queue-access-qr.svg"
           >
             Download SVG

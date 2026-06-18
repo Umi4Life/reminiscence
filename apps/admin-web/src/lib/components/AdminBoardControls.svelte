@@ -150,6 +150,31 @@
       window.open(`${API_BASE_URL}/qr/${rotateAccessCode}.svg`, "_blank");
     }
   }
+
+  async function downloadPng() {
+    if (!rotateAccessCode) return;
+    const response = await fetch(`${API_BASE_URL}/qr/${rotateAccessCode}.svg`);
+    const svgText = await response.text();
+    const blob = new Blob([svgText], { type: "image/svg+xml" });
+    const svgUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const size = 512;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, size);
+      URL.revokeObjectURL(svgUrl);
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = "queue-access-qr.png";
+      a.click();
+    };
+    img.src = svgUrl;
+  }
 </script>
 
 <section class="section">
@@ -214,6 +239,13 @@
           >
             Download SVG
           </a>
+          <button
+            type="button"
+            class="btn btn-secondary rotate-qr-btn"
+            onclick={downloadPng}
+          >
+            Download PNG
+          </button>
         </div>
         <p class="rotate-qr-help">
           Display or print this QR for visitors. The previous QR stops working

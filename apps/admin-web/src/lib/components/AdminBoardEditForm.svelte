@@ -128,7 +128,7 @@
         bind:value={slug}
         required
         disabled={busy}
-        pattern="[a-z0-9._~-]+"
+        pattern="[-a-z0-9._~]+"
         autocomplete="off"
       />
     </label>
@@ -141,7 +141,7 @@
         bind:value={publicSlug}
         required
         disabled={busy}
-        pattern="[a-z0-9._~-]+"
+        pattern="[-a-z0-9._~]+"
         autocomplete="off"
       />
     </label>

@@ -131,7 +131,7 @@
               oninput={onSlugInput}
               required
               disabled={busy}
-              pattern="[a-z0-9._~-]+"
+              pattern="[-a-z0-9._~]+"
               autocomplete="off"
             />
           </label>
@@ -145,7 +145,7 @@
               oninput={onPublicSlugInput}
               required
               disabled={busy}
-              pattern="[a-z0-9._~-]+"
+              pattern="[-a-z0-9._~]+"
               autocomplete="off"
             />
           </label>

@@ -10,7 +10,7 @@ import type { AppConfig } from "@queue-reminiscence/config";
  * credential-theft hole.
  */
 
-const ALLOWED_METHODS = "GET, POST, OPTIONS";
+const ALLOWED_METHODS = "GET, POST, PATCH, DELETE, OPTIONS";
 const ALLOWED_HEADERS = "content-type, x-requested-with";
 const PREFLIGHT_MAX_AGE_SECONDS = "600";
 

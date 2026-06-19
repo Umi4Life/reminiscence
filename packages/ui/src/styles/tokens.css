@@ -107,14 +107,14 @@
   --color-text-muted: #a892c4;
   --color-text-faint: #7a6699;
 
-  /* Surfaces — deep violet-black */
-  --color-bg: #0c0614;
-  --color-surface: #170e26;
-  --color-surface-raised: #21163a;
+  /* Surfaces — deep desaturated violet (jacket field, lifted off pure black) */
+  --color-bg: #16111e;
+  --color-surface: #201b2d;
+  --color-surface-raised: #2b2440;
 
   /* Borders */
-  --color-border: #2e1f47;
-  --color-border-strong: #46306b;
+  --color-border: #382e4e;
+  --color-border-strong: #4c4068;
 
   /* Text color on filled buttons */
   --color-on-primary: #03121f;

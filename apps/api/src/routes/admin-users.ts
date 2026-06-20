@@ -36,10 +36,11 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
       async ({ request }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
         const rbac = toAdminRbacContext(session);
-        assertSuperAdmin(rbac);
 
-        const admins = await deps.adminManagementService.listAdmins();
-        return apiSuccess({ admins });
+        const result = await deps.adminManagementService.listAdmins(rbac);
+        if (result.status === "forbidden") throw forbiddenError();
+
+        return apiSuccess({ admins: result.admins });
       },
       {
         response: {
@@ -49,7 +50,8 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
         },
         detail: {
           summary: "List admin users",
-          description: "Returns all admin users. Requires super-admin.",
+          description:
+            "Super-admin returns all admin users. Org-owner returns admins within their own org.",
           tags: [API_TAGS.adminUsers],
           security: [{ AdminSession: [] }],
         },
@@ -128,7 +130,6 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
       async ({ request, params, body }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
         const rbac = toAdminRbacContext(session);
-        assertSuperAdmin(rbac);
 
         if (Object.keys(body).length === 0) {
           throw validationError("At least one field must be provided.");
@@ -146,10 +147,14 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
           patch.status = body.status;
         }
 
-        const result = await deps.adminManagementService.updateAdmin(params.adminUserId, patch);
+        const result = await deps.adminManagementService.updateAdmin(
+          rbac,
+          params.adminUserId,
+          patch,
+        );
 
         if (result.status === "not_found") throw notFoundError();
-        if (result.status === "forbidden") throw forbiddenError("Cannot disable a super-admin.");
+        if (result.status === "forbidden") throw forbiddenError("Cannot modify this admin.");
         if (result.status === "last_super_admin") {
           throw validationError("Cannot disable the last active super-admin.");
         }
@@ -169,7 +174,9 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
         response: { 200: success(t.Object({ admin: AdminUserSummary })), ...adminUserErrors },
         detail: {
           summary: "Update admin user",
-          description: "Updates admin display name or status. Requires super-admin.",
+          description:
+            "Updates admin display name or status. Super-admin can update any non-super-admin; " +
+            "org-owner can update non-super-admin users within their own org.",
           tags: [API_TAGS.adminUsers],
           security: [{ AdminSession: [] }],
         },
@@ -180,14 +187,16 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
       async ({ request, params, body }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
         const rbac = toAdminRbacContext(session);
-        assertSuperAdmin(rbac);
 
         const result = await deps.adminManagementService.resetPassword(
+          rbac,
           params.adminUserId,
           body.password,
         );
 
         if (result.status === "not_found") throw notFoundError();
+        if (result.status === "forbidden")
+          throw forbiddenError("Cannot reset this admin's password.");
 
         await deps.auditLogService?.record({
           actorAdminUserId: session.admin.id,
@@ -207,7 +216,8 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
         detail: {
           summary: "Reset admin password",
           description:
-            "Resets an admin's password and revokes all their active sessions. Requires super-admin.",
+            "Resets an admin's password and revokes all their active sessions. " +
+            "Super-admin can reset any admin; org-owner can reset non-super-admin users within their own org.",
           tags: [API_TAGS.adminUsers],
           security: [{ AdminSession: [] }],
         },

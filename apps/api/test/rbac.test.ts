@@ -15,6 +15,7 @@ import {
   canOperateBoard,
   canReadOrganization,
   canReadVenue,
+  getOwnedOrganizationIds,
   type AdminMembershipContext,
   type AdminRbacContext,
   type BoardResourceContext,
@@ -448,6 +449,47 @@ describe("admin RBAC helpers", () => {
     test("super-admin with no memberships can manage any org", () => {
       expect(canManageOrganization(superAdmin, ORG_A)).toBe(true);
       expect(canManageOrganization(superAdmin, ORG_B)).toBe(true);
+    });
+  });
+
+  describe("getOwnedOrganizationIds", () => {
+    test("returns org IDs where the context has org_owner role", () => {
+      const result = getOwnedOrganizationIds(context(orgOwnerMembership));
+      expect(result).toEqual([ORG_A]);
+    });
+
+    test("excludes orgs where the context only has venue-level roles", () => {
+      const result = getOwnedOrganizationIds(context(venueManagerMembership));
+      expect(result).toEqual([]);
+    });
+
+    test("excludes orgs where the context has venue_staff role", () => {
+      const result = getOwnedOrganizationIds(context(venueStaffMembership));
+      expect(result).toEqual([]);
+    });
+
+    test("returns empty array for super-admin with no memberships", () => {
+      const superAdmin: AdminRbacContext = { memberships: [], isSuperAdmin: true };
+      expect(getOwnedOrganizationIds(superAdmin)).toEqual([]);
+    });
+
+    test("returns empty array when context has no memberships", () => {
+      const empty: AdminRbacContext = { memberships: [] };
+      expect(getOwnedOrganizationIds(empty)).toEqual([]);
+    });
+
+    test("returns multiple org IDs when context owns multiple orgs", () => {
+      const multiOwner = context(orgOwnerMembership, membership(ORG_B, null, "org_owner"));
+      const result = getOwnedOrganizationIds(multiOwner);
+      expect(result.includes(ORG_A)).toBe(true);
+      expect(result.includes(ORG_B)).toBe(true);
+      expect(result.length).toBe(2);
+    });
+
+    test("does not include org where context has venue_manager at org level (venueId non-null)", () => {
+      // org_owner requires venueId === null
+      const result = getOwnedOrganizationIds(context(venueManagerMembership));
+      expect(result).toEqual([]);
     });
   });
 });

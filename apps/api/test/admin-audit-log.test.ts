@@ -116,8 +116,21 @@ function createFakeMembershipManagement(): MembershipManagementService {
 
 function createFakeAdminManagement(): AdminManagementService {
   return {
-    async listAdmins() {
-      return [];
+    async listAdmins(_rbac) {
+      void _rbac;
+      return { status: "ok", admins: [] };
+    },
+    async getAdmin(adminUserId) {
+      return {
+        id: adminUserId,
+        email: "target@example.com",
+        displayName: "Target Admin",
+        status: "active",
+        isSuperAdmin: false,
+        memberships: [],
+        createdAt: ts,
+        updatedAt: ts,
+      };
     },
     async createAdmin(input) {
       return {
@@ -134,7 +147,8 @@ function createFakeAdminManagement(): AdminManagementService {
         },
       };
     },
-    async updateAdmin(adminUserId, patch) {
+    async updateAdmin(_rbac, adminUserId, patch) {
+      void _rbac;
       return {
         status: "updated",
         admin: {

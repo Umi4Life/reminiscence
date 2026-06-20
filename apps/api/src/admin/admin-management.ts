@@ -46,6 +46,7 @@ export type ResetAdminPasswordResult = { status: "reset" } | { status: "not_foun
 
 export interface AdminManagementService {
   listAdmins(): Promise<AdminUserSummary[]>;
+  getAdmin(adminUserId: string): Promise<AdminUserSummary | null>;
   createAdmin(input: CreateAdminInput): Promise<CreateAdminResult>;
   updateAdmin(adminUserId: string, patch: PatchAdminInput): Promise<UpdateAdminResult>;
   resetPassword(adminUserId: string, newPassword: string): Promise<ResetAdminPasswordResult>;
@@ -101,6 +102,19 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
           allMemberships.filter((membership) => membership.adminUserId === admin.id),
         ),
       );
+    },
+
+    async getAdmin(adminUserId: string): Promise<AdminUserSummary | null> {
+      const [admin] = await db
+        .select()
+        .from(adminUsers)
+        .where(eq(adminUsers.id, adminUserId))
+        .limit(1);
+
+      if (!admin) return null;
+
+      const memberships = await loadMembershipsForUser(db, adminUserId);
+      return toAdminUserSummary(admin, memberships);
     },
 
     async createAdmin(input: CreateAdminInput): Promise<CreateAdminResult> {

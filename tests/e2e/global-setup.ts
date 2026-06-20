@@ -65,6 +65,17 @@ function writeEnvIfMissing(): void {
   console.log(`[global-setup] Wrote ${envPath}`);
 }
 
+function resetE2EAdminUsers(): void {
+  console.log("[global-setup] Removing e2e-created admin users...");
+  const sql = [
+    `DELETE FROM admin_memberships WHERE admin_user_id IN (SELECT id FROM admin_users WHERE email = 'newadmin-e2e@example.com');`,
+    `DELETE FROM admin_sessions WHERE admin_user_id IN (SELECT id FROM admin_users WHERE email = 'newadmin-e2e@example.com');`,
+    `DELETE FROM admin_users WHERE email = 'newadmin-e2e@example.com';`,
+  ].join(" ");
+  runSilent(`docker exec ${CONTAINER} psql -U ${PG_USER} -d ${PG_USER} -c "${sql}"`);
+  console.log("[global-setup] E2E admin users removed.");
+}
+
 function resetBoardState(): void {
   console.log("[global-setup] Resetting board state...");
   const boardId = "(SELECT id FROM boards WHERE slug = 'chunithm-gold')";
@@ -111,8 +122,12 @@ export default async function globalSetup(): Promise<void> {
   execSync("bun run --cwd packages/db db:migrate", { stdio: "inherit", env });
 
   console.log("[global-setup] Running db:seed...");
-  execSync("bun run --cwd packages/db db:seed", { stdio: "inherit", env });
+  execSync("bun run --cwd packages/db db:seed", {
+    stdio: "inherit",
+    env: { ...env, SEED_SUPER_ADMIN: "true" },
+  });
 
   resetAdminPassword(env);
+  resetE2EAdminUsers();
   resetBoardState();
 }

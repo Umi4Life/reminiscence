@@ -1,32 +1,14 @@
-// BLOCKER: This e2e suite depends on API routes added in PR W3C (field/p17-admins-ui).
-// These routes (GET/POST /api/admin/users, membership assign/revoke, password reset)
-// are not present in `main` as of the time this PR was opened. The suite cannot
-// run until the API PR (or a stack containing it) is merged and the test server
-// is started against that code.
-//
-// What IS verified without the full stack:
-//   - TypeScript types for all new API functions compile (checked via `bun run check`)
-//   - The admin-web UI components exist and have correct slot/prop types
-//   - The API route file (admin-users.ts) and service file (admin-user-management.ts)
-//     compile as part of the API package build
-//
-// Once the API is available, remove this blocker comment and un-skip the tests.
-
 import { expect, test, type Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/env";
 
 const NEW_ADMIN_EMAIL = "newadmin-e2e@example.com";
 const NEW_ADMIN_DISPLAY = "E2E New Admin";
 const NEW_ADMIN_PASSWORD = "e2e-newadmin-pass1";
-const NEW_ADMIN_SCOPED_ORG = "Test Organisation";
+// Must match the organisation seeded by packages/db/src/seed.ts (ORG_NAME).
+const NEW_ADMIN_SCOPED_ORG = "Umi4Life Demo";
 
 test.describe("admin users and memberships", () => {
   test.describe.configure({ mode: "serial" });
-  // SKIP until W3A/W3B API PRs are merged and server is running with admin-users routes.
-  test.skip(
-    true,
-    "Blocked: requires API routes from field/p17-admins-ui (W3C) stack — API PRs not yet merged.",
-  );
 
   let page: Page;
 
@@ -47,11 +29,11 @@ test.describe("admin users and memberships", () => {
   test("dashboard shows Admins section for super-admin", async () => {
     await page.goto("http://localhost:3001/");
     await expect(page.getByRole("heading", { name: "Admins" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Manage", exact: false }).nth(1)).toBeVisible();
+    await expect(page.getByTestId("admins-manage-link")).toBeVisible();
   });
 
   test("admins list page is accessible", async () => {
-    await page.getByRole("link", { name: "Manage", exact: false }).nth(1).click();
+    await page.getByTestId("admins-manage-link").click();
     await expect(page).toHaveURL(/\/admins/);
     await expect(page.getByRole("heading", { name: "Admins" })).toBeVisible();
   });

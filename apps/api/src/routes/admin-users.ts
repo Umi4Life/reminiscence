@@ -53,6 +53,29 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
         },
       },
     )
+    .get(
+      "/api/admin/admins/:adminUserId",
+      async ({ request, params }) => {
+        const session = await requireAdminSession(deps.authService, request.headers);
+        const rbac = toAdminRbacContext(session);
+        assertSuperAdmin(rbac);
+
+        const admin = await deps.adminManagementService.getAdmin(params.adminUserId);
+        if (!admin) throw notFoundError();
+
+        return apiSuccess({ admin });
+      },
+      {
+        params: "AdminUserIdParams",
+        response: { 200: success(t.Object({ admin: AdminUserSummary })), ...adminUserErrors },
+        detail: {
+          summary: "Get admin user",
+          description: "Returns a single admin user by ID. Requires super-admin.",
+          tags: [API_TAGS.adminUsers],
+          security: [{ AdminSession: [] }],
+        },
+      },
+    )
     .post(
       "/api/admin/admins",
       async ({ request, body }) => {

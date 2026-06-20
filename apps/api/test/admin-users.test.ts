@@ -52,6 +52,10 @@ function createFakeAdminManagementService(
       return store.slice();
     },
 
+    async getAdmin(adminUserId: string) {
+      return store.find((a) => a.id === adminUserId) ?? null;
+    },
+
     async createAdmin(input: CreateAdminInput) {
       if (store.some((a) => a.email === input.email)) {
         return { status: "conflict" };

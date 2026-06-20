@@ -1,4 +1,4 @@
-# Queue Reminiscence
+# Reminiscence
 
 > An operator-managed digital queue board for arcades and casual venues — the feel of a paper queue sheet, with QR-derived edit access, public history, and staff controls.
 
@@ -62,9 +62,9 @@ bun install
 
 # 2. Start Postgres (any way you like — e.g. Docker)
 docker run --name qr-pg -p 5432:5432 \
-  -e POSTGRES_USER=queue_reminiscence \
-  -e POSTGRES_PASSWORD=queue_reminiscence \
-  -e POSTGRES_DB=queue_reminiscence \
+  -e POSTGRES_USER=reminiscence \
+  -e POSTGRES_PASSWORD=reminiscence \
+  -e POSTGRES_DB=reminiscence \
   -d postgres:16-alpine
 
 # 3. Configure environment

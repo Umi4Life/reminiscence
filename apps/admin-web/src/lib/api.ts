@@ -344,7 +344,9 @@ export async function resetAdminPassword(
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<void> {
   await unwrap(
-    client(fetchFn).api.admin.admins({ adminUserId })["password-reset"].post({ password: newPassword }),
+    client(fetchFn)
+      .api.admin.admins({ adminUserId })
+      ["password-reset"].post({ password: newPassword }),
   );
 }
 
@@ -363,7 +365,5 @@ export async function revokeMembership(
   membershipId: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<void> {
-  await unwrap(
-    client(fetchFn).api.admin.memberships({ id: membershipId }).delete(),
-  );
+  await unwrap(client(fetchFn).api.admin.memberships({ id: membershipId }).delete());
 }

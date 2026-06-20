@@ -76,7 +76,10 @@ function toAdminUserSummary(
   };
 }
 
-async function loadMembershipsForUser(db: Database, adminUserId: string): Promise<AdminMembership[]> {
+async function loadMembershipsForUser(
+  db: Database,
+  adminUserId: string,
+): Promise<AdminMembership[]> {
   return db.select().from(adminMemberships).where(eq(adminMemberships.adminUserId, adminUserId));
 }
 

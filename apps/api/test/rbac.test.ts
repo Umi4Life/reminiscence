@@ -414,4 +414,40 @@ describe("admin RBAC helpers", () => {
       expect(canManageOrganization(regularAdmin, ORG_A)).toBe(false);
     });
   });
+
+  // Membership management uses canManagePlatform (super-admin) and
+  // canManageOrganization (org-owner) as its two RBAC gates. These tests
+  // document the expected guard behavior for that surface.
+  describe("membership management gates", () => {
+    const superAdmin: AdminRbacContext = { memberships: [], isSuperAdmin: true };
+
+    test("super-admin passes canManagePlatform gate", () => {
+      expect(canManagePlatform(superAdmin)).toBe(true);
+    });
+
+    test("org_owner fails canManagePlatform gate (cannot grant platform-level access)", () => {
+      expect(canManagePlatform(context(orgOwnerMembership))).toBe(false);
+    });
+
+    test("org_owner passes canManageOrganization for own org", () => {
+      expect(canManageOrganization(context(orgOwnerMembership), ORG_A)).toBe(true);
+    });
+
+    test("org_owner fails canManageOrganization for a different org", () => {
+      expect(canManageOrganization(context(orgOwnerMembership), ORG_B)).toBe(false);
+    });
+
+    test("venue_manager fails canManageOrganization (cannot manage memberships)", () => {
+      expect(canManageOrganization(context(venueManagerMembership), ORG_A)).toBe(false);
+    });
+
+    test("venue_staff fails canManageOrganization (cannot manage memberships)", () => {
+      expect(canManageOrganization(context(venueStaffMembership), ORG_A)).toBe(false);
+    });
+
+    test("super-admin with no memberships can manage any org", () => {
+      expect(canManageOrganization(superAdmin, ORG_A)).toBe(true);
+      expect(canManageOrganization(superAdmin, ORG_B)).toBe(true);
+    });
+  });
 });

@@ -165,11 +165,30 @@ export const PatchVenueBody = t.Object({
   address: t.Optional(t.Nullable(t.String())),
 });
 
+export const AssignMembershipBody = t.Object({
+  adminUserId: t.String({
+    pattern: UuidPattern,
+    description: "Admin user to assign the membership to.",
+  }),
+  organizationId: t.String({ pattern: UuidPattern, description: "Organization." }),
+  venueId: t.Nullable(
+    t.String({
+      pattern: UuidPattern,
+      description: "Venue for venue-level roles. Null for org-level membership.",
+    }),
+  ),
+  role: AdminMembershipRole,
+});
+
 // ---------------------------------------------------------------------------
 // Path params & query strings
 // ---------------------------------------------------------------------------
 export const OrgIdParams = t.Object({
   orgId: t.String({ description: "Organization identifier (UUID)." }),
+});
+
+export const MembershipIdParams = t.Object({
+  id: t.String({ description: "Membership identifier (UUID)." }),
 });
 
 export const VenueIdParams = t.Object({
@@ -250,6 +269,15 @@ export const AdminMembershipSummary = t.Object({
   organizationId: t.String(),
   venueId: t.Nullable(t.String()),
   role: AdminMembershipRole,
+});
+
+export const MembershipDetail = t.Object({
+  id: t.String(),
+  adminUserId: t.String(),
+  organizationId: t.String(),
+  venueId: t.Nullable(t.String()),
+  role: AdminMembershipRole,
+  createdAt: t.Date(),
 });
 
 export const AdminSessionContext = t.Object({

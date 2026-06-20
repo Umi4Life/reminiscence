@@ -14,6 +14,10 @@ import {
   createDbVenueManagementService,
   type VenueManagementService,
 } from "./admin/venue-management";
+import {
+  createDbMembershipManagementService,
+  type MembershipManagementService,
+} from "./admin/membership-management";
 import { createDbBoardAccessService, type BoardAccessService } from "./access/board-access";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
 import { createDbPublicSessionService, type PublicSessionService } from "./auth/public-sessions";
@@ -33,6 +37,7 @@ import { adminAuthRoutes } from "./routes/admin-auth";
 import { adminBoardsRoutes } from "./routes/admin-boards";
 import { adminOrganizationsRoutes } from "./routes/admin-organizations";
 import { adminVenuesRoutes } from "./routes/admin-venues";
+import { adminMembershipsRoutes } from "./routes/admin-memberships";
 import { publicAccessRoutes } from "./routes/public-access";
 import { publicBoardsRoutes } from "./routes/public-boards";
 import { qrRoutes } from "./routes/qr";
@@ -50,6 +55,7 @@ export interface AppDeps {
   boardManagementService?: BoardManagementService;
   orgManagementService?: OrgManagementService;
   venueManagementService?: VenueManagementService;
+  membershipManagementService?: MembershipManagementService;
   boardAccessService?: BoardAccessService;
   publicSessionService?: PublicSessionService;
   publicBoardReadService?: PublicBoardReadService;
@@ -81,6 +87,8 @@ export function createApp(deps: AppDeps = {}) {
   const boardManagementService = deps.boardManagementService ?? createDbBoardManagementService(db);
   const orgManagementService = deps.orgManagementService ?? createDbOrgManagementService(db);
   const venueManagementService = deps.venueManagementService ?? createDbVenueManagementService(db);
+  const membershipManagementService =
+    deps.membershipManagementService ?? createDbMembershipManagementService(db);
   const boardAccessService = deps.boardAccessService ?? createDbBoardAccessService(db, config);
   const publicSessionService =
     deps.publicSessionService ?? createDbPublicSessionService(db, config);
@@ -184,6 +192,7 @@ export function createApp(deps: AppDeps = {}) {
     .use(adminOrganizationsRoutes(adminRouteDeps))
     .use(adminVenuesRoutes(adminRouteDeps))
     .use(adminBoardsRoutes(adminRouteDeps))
+    .use(adminMembershipsRoutes({ authService: adminAuthService, membershipManagementService }))
     .use(publicAccessRoutes({ config, publicSessionService, rateLimiter }))
     .use(publicBoardsRoutes({ config, publicBoardReadService, queueMutationService, rateLimiter }))
     .use(

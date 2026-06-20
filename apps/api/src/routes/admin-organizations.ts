@@ -3,6 +3,7 @@ import { Elysia, t } from "elysia";
 
 import type { BoardManagementService } from "../admin/board-management";
 import type { OrgManagementService } from "../admin/org-management";
+import type { AdminAuditLogService } from "../admin/admin-audit-log";
 import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { toAdminRbacContext } from "../auth/rbac";
@@ -16,6 +17,7 @@ export interface AdminOrganizationsRouteDeps {
   authService: AdminAuthService;
   boardManagementService: BoardManagementService;
   orgManagementService: OrgManagementService;
+  auditLogService?: AdminAuditLogService;
 }
 
 const adminOrgErrors = {
@@ -81,6 +83,12 @@ export function adminOrganizationsRoutes(deps: AdminOrganizationsRouteDeps) {
           throw conflictError("An organization with this slug already exists.");
         }
 
+        await deps.auditLogService?.record({
+          actorAdminUserId: session.admin.id,
+          action: "org_create",
+          targetId: result.organization.id,
+        });
+
         return apiSuccess({ organization: result.organization });
       },
       {
@@ -137,6 +145,13 @@ export function adminOrganizationsRoutes(deps: AdminOrganizationsRouteDeps) {
           throw conflictError("An organization with this slug already exists.");
         }
 
+        await deps.auditLogService?.record({
+          actorAdminUserId: session.admin.id,
+          action: "org_update",
+          targetId: params.orgId,
+          organizationId: params.orgId,
+        });
+
         return apiSuccess({ organization: result.organization });
       },
       {
@@ -178,6 +193,13 @@ export function adminOrganizationsRoutes(deps: AdminOrganizationsRouteDeps) {
             "Cannot delete an organization that has venues. Remove all venues first.",
           );
         }
+
+        await deps.auditLogService?.record({
+          actorAdminUserId: session.admin.id,
+          action: "org_delete",
+          targetId: params.orgId,
+          organizationId: params.orgId,
+        });
 
         return apiSuccess({ deleted: true });
       },

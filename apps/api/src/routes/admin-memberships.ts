@@ -4,6 +4,7 @@ import type {
   AssignMembershipInput,
   MembershipManagementService,
 } from "../admin/membership-management";
+import type { AdminAuditLogService } from "../admin/admin-audit-log";
 import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { toAdminRbacContext } from "../auth/rbac";
@@ -16,6 +17,7 @@ import { MembershipDetail, success } from "../http/schemas";
 export interface AdminMembershipsRouteDeps {
   authService: AdminAuthService;
   membershipManagementService: MembershipManagementService;
+  auditLogService?: AdminAuditLogService;
 }
 
 const membershipErrors = {
@@ -69,6 +71,14 @@ export function adminMembershipsRoutes(deps: AdminMembershipsRouteDeps) {
           if (result.status === "conflict")
             throw conflictError("This admin already has a membership in the given scope.");
 
+          await deps.auditLogService?.record({
+            actorAdminUserId: session.admin.id,
+            action: "membership_assign",
+            targetId: result.membership.id,
+            organizationId: result.membership.organizationId,
+            metadata: { adminUserId: input.adminUserId, role: input.role },
+          });
+
           return apiSuccess({ membership: result.membership });
         },
         {
@@ -107,6 +117,12 @@ export function adminMembershipsRoutes(deps: AdminMembershipsRouteDeps) {
               "Cannot remove the last org_owner of an organization. Assign another owner first.",
             );
           }
+
+          await deps.auditLogService?.record({
+            actorAdminUserId: session.admin.id,
+            action: "membership_revoke",
+            targetId: params.id,
+          });
 
           return apiSuccess({ revoked: true });
         },

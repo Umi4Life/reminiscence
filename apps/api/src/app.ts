@@ -22,6 +22,11 @@ import {
   createDbAdminManagementService,
   type AdminManagementService,
 } from "./admin/admin-management";
+import {
+  createDbAdminAuditLogService,
+  createNoopAdminAuditLogService,
+  type AdminAuditLogService,
+} from "./admin/admin-audit-log";
 import { createDbBoardAccessService, type BoardAccessService } from "./access/board-access";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
 import { createDbPublicSessionService, type PublicSessionService } from "./auth/public-sessions";
@@ -67,6 +72,7 @@ export interface AppDeps {
   publicBoardReadService?: PublicBoardReadService;
   queueMutationService?: QueueMutationService;
   rateLimiter?: RateLimiter;
+  auditLogService?: AdminAuditLogService;
   displayDeviceResolver?: DisplayDeviceResolver;
   displayStateService?: DisplayStateService;
 }
@@ -102,6 +108,9 @@ export function createApp(deps: AppDeps = {}) {
   const publicBoardReadService =
     deps.publicBoardReadService ?? createDbPublicBoardReadService(db, config, publicSessionService);
   const rateLimiter = deps.rateLimiter ?? createDbRateLimiter(db);
+  const auditLogService =
+    deps.auditLogService ??
+    (deps.db !== undefined ? createDbAdminAuditLogService(db) : createNoopAdminAuditLogService());
   const queueMutationService =
     deps.queueMutationService ??
     createDbQueueMutationService(db, config, publicSessionService, rateLimiter);
@@ -113,6 +122,7 @@ export function createApp(deps: AppDeps = {}) {
     venueManagementService,
     boardAccessService,
     adminManagementService,
+    auditLogService,
   };
 
   const allowedOrigins = buildAllowedOrigins(config);
@@ -200,7 +210,13 @@ export function createApp(deps: AppDeps = {}) {
     .use(adminOrganizationsRoutes(adminRouteDeps))
     .use(adminVenuesRoutes(adminRouteDeps))
     .use(adminBoardsRoutes(adminRouteDeps))
-    .use(adminMembershipsRoutes({ authService: adminAuthService, membershipManagementService }))
+    .use(
+      adminMembershipsRoutes({
+        authService: adminAuthService,
+        membershipManagementService,
+        auditLogService,
+      }),
+    )
     .use(adminUsersRoutes(adminRouteDeps))
     .use(publicAccessRoutes({ config, publicSessionService, rateLimiter }))
     .use(publicBoardsRoutes({ config, publicBoardReadService, queueMutationService, rateLimiter }))

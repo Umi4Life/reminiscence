@@ -354,6 +354,36 @@ export const displayDevices = pgTable(
   ],
 );
 
+export const adminAuditActionEnum = pgEnum("admin_audit_action", [
+  "org_create",
+  "org_update",
+  "org_delete",
+  "admin_create",
+  "admin_update",
+  "admin_password_reset",
+  "membership_assign",
+  "membership_revoke",
+]);
+
+export const adminAuditEvents = pgTable(
+  "admin_audit_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorAdminUserId: uuid("actor_admin_user_id")
+      .notNull()
+      .references(() => adminUsers.id),
+    action: adminAuditActionEnum("action").notNull(),
+    targetId: varchar("target_id", { length: 255 }).notNull(),
+    organizationId: uuid("organization_id"),
+    metadata: text("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("admin_audit_events_actor_idx").on(table.actorAdminUserId),
+    index("admin_audit_events_created_at_idx").on(desc(table.createdAt)),
+  ],
+);
+
 export const rateLimitBuckets = pgTable(
   "rate_limit_buckets",
   {
@@ -400,3 +430,5 @@ export type DisplayDevice = typeof displayDevices.$inferSelect;
 export type NewDisplayDevice = typeof displayDevices.$inferInsert;
 export type RateLimitBucket = typeof rateLimitBuckets.$inferSelect;
 export type NewRateLimitBucket = typeof rateLimitBuckets.$inferInsert;
+export type AdminAuditEvent = typeof adminAuditEvents.$inferSelect;
+export type NewAdminAuditEvent = typeof adminAuditEvents.$inferInsert;

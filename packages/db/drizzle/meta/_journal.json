@@ -36,6 +36,13 @@
       "when": 1781937319393,
       "tag": "0004_jittery_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781979625727,
+      "tag": "0005_talented_loa",
+      "breakpoints": true
     }
   ]
 }

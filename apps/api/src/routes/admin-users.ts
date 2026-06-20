@@ -5,6 +5,7 @@ import type {
   CreateAdminInput,
   PatchAdminInput,
 } from "../admin/admin-management";
+import type { AdminAuditLogService } from "../admin/admin-audit-log";
 import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { toAdminRbacContext, assertSuperAdmin } from "../auth/rbac";
@@ -17,6 +18,7 @@ import { success, AdminUserSummary } from "../http/schemas";
 export interface AdminUsersRouteDeps {
   authService: AdminAuthService;
   adminManagementService: AdminManagementService;
+  auditLogService?: AdminAuditLogService;
 }
 
 const adminUserErrors = {
@@ -102,6 +104,12 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
           throw validationError("An admin with this email already exists.");
         }
 
+        await deps.auditLogService?.record({
+          actorAdminUserId: session.admin.id,
+          action: "admin_create",
+          targetId: result.admin.id,
+        });
+
         return apiSuccess({ admin: result.admin });
       },
       {
@@ -146,6 +154,13 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
           throw validationError("Cannot disable the last active super-admin.");
         }
 
+        await deps.auditLogService?.record({
+          actorAdminUserId: session.admin.id,
+          action: "admin_update",
+          targetId: params.adminUserId,
+          metadata: patch.status !== undefined ? { status: patch.status } : null,
+        });
+
         return apiSuccess({ admin: result.admin });
       },
       {
@@ -173,6 +188,12 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
         );
 
         if (result.status === "not_found") throw notFoundError();
+
+        await deps.auditLogService?.record({
+          actorAdminUserId: session.admin.id,
+          action: "admin_password_reset",
+          targetId: params.adminUserId,
+        });
 
         return apiSuccess({ reset: true as const });
       },

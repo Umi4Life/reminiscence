@@ -16,6 +16,14 @@ import type {
   OrgManagementService,
   UpdateOrgResult,
 } from "../src/admin/org-management";
+import type {
+  CreateVenueInput,
+  CreateVenueResult,
+  DeleteVenueResult,
+  PatchVenueInput,
+  UpdateVenueResult,
+  VenueManagementService,
+} from "../src/admin/venue-management";
 import type { AdminAuthService, AdminSessionContext } from "../src/auth/admin-sessions";
 import { unauthorizedError } from "../src/http/errors";
 import {
@@ -24,6 +32,7 @@ import {
   canManagePlatform,
   canManageVenue,
   canOperateBoard,
+  canReadOrganization,
   canReadVenue,
   type AdminMembershipContext,
   type AdminRbacContext,
@@ -544,7 +553,89 @@ export function createFakeBoardManagementHarness(
   return harness;
 }
 
-export const sessionCookie = "qr_admin_session=test-session-token";
+export function createFakeVenueManagementService(
+  initialVenues: VenueSummary[] = venuesFixture.map((v) => ({ ...v })),
+  boardedVenueIds: Set<string> = new Set(),
+): VenueManagementService {
+  const store: VenueSummary[] = initialVenues.map((v) => ({ ...v }));
+
+  return {
+    async listVenues(rbac) {
+      if (rbac.isSuperAdmin) return store.slice();
+      return store.filter((v) =>
+        canReadVenue(rbac, { organizationId: v.organizationId, venueId: v.id }),
+      );
+    },
+
+    async getVenue(rbac, venueId) {
+      const v = store.find((candidate) => candidate.id === venueId);
+      if (!v) return null;
+      if (!canReadVenue(rbac, { organizationId: v.organizationId, venueId: v.id })) return null;
+      return v;
+    },
+
+    async createVenue(rbac, input: CreateVenueInput): Promise<CreateVenueResult> {
+      const org = organizationsFixture.find((o) => o.id === input.organizationId);
+      if (!org) return { status: "org_not_found" };
+      if (!canManageOrganization(rbac, input.organizationId)) {
+        if (canReadOrganization(rbac, input.organizationId)) return { status: "forbidden" };
+        return { status: "org_not_found" };
+      }
+      if (store.some((v) => v.organizationId === input.organizationId && v.slug === input.slug)) {
+        return { status: "conflict", field: "slug" };
+      }
+      const created: VenueSummary = {
+        id: crypto.randomUUID(),
+        organizationId: input.organizationId,
+        slug: input.slug,
+        name: input.name,
+        timezone: input.timezone,
+        address: input.address,
+        createdAt: new Date("2026-06-20T00:00:00.000Z"),
+        updatedAt: new Date("2026-06-20T00:00:00.000Z"),
+      };
+      store.push(created);
+      return { status: "created", venue: created };
+    },
+
+    async updateVenue(rbac, venueId, patch: PatchVenueInput): Promise<UpdateVenueResult> {
+      const index = store.findIndex((v) => v.id === venueId);
+      if (index === -1) return { status: "not_found" };
+      const v = store[index] as VenueSummary;
+      if (!canReadVenue(rbac, { organizationId: v.organizationId, venueId: v.id })) {
+        return { status: "not_found" };
+      }
+      if (!canManageOrganization(rbac, v.organizationId)) return { status: "forbidden" };
+      if (
+        patch.slug !== undefined &&
+        store.some(
+          (candidate) =>
+            candidate.id !== venueId &&
+            candidate.organizationId === v.organizationId &&
+            candidate.slug === patch.slug,
+        )
+      ) {
+        return { status: "conflict", field: "slug" };
+      }
+      const updated = { ...v, ...patch, updatedAt: new Date("2026-06-20T12:00:00.000Z") };
+      store[index] = updated;
+      return { status: "updated", venue: updated };
+    },
+
+    async deleteVenue(rbac, venueId): Promise<DeleteVenueResult> {
+      const index = store.findIndex((v) => v.id === venueId);
+      if (index === -1) return { status: "not_found" };
+      const v = store[index] as VenueSummary;
+      if (!canReadVenue(rbac, { organizationId: v.organizationId, venueId: v.id })) {
+        return { status: "not_found" };
+      }
+      if (!canManageOrganization(rbac, v.organizationId)) return { status: "forbidden" };
+      if (boardedVenueIds.has(venueId)) return { status: "has_boards" };
+      store.splice(index, 1);
+      return { status: "deleted" };
+    },
+  };
+}
 
 export function createFakeOrgManagementService(
   initialOrgs: OrganizationSummary[] = organizationsFixture.map((o) => ({ ...o })),
@@ -598,3 +689,5 @@ export function createFakeOrgManagementService(
     },
   };
 }
+
+export const sessionCookie = "qr_admin_session=test-session-token";

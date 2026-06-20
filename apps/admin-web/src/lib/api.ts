@@ -36,6 +36,21 @@ export interface PatchOrganizationInput {
 }
 
 // Request inputs accepted by the create/patch endpoints (the editable subset).
+export interface CreateVenueInput {
+  organizationId: string;
+  slug: string;
+  name: string;
+  timezone: string;
+  address?: string | null;
+}
+
+export interface PatchVenueInput {
+  slug?: string;
+  name?: string;
+  timezone?: string;
+  address?: string | null;
+}
+
 export interface CreateBoardInput {
   venueId: string;
   slug: string;
@@ -127,6 +142,14 @@ export async function getMe(fetchFn: FetchFn = globalThis.fetch): Promise<MeData
   return unwrap<MeData>(client(fetchFn).api.admin.me.get());
 }
 
+export async function listOrganizations(
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ organizations: OrganizationSummary[] }> {
+  return unwrap<{ organizations: OrganizationSummary[] }>(
+    client(fetchFn).api.admin.organizations.get(),
+  );
+}
+
 export async function listBoards(
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ boards: BoardSummary[] }> {
@@ -137,6 +160,37 @@ export async function listVenues(
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ venues: VenueSummary[] }> {
   return unwrap<{ venues: VenueSummary[] }>(client(fetchFn).api.admin.venues.get());
+}
+
+export async function createVenue(
+  body: CreateVenueInput,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ venue: VenueSummary }> {
+  return unwrap<{ venue: VenueSummary }>(client(fetchFn).api.admin.venues.post(body));
+}
+
+export async function getVenue(
+  venueId: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ venue: VenueSummary }> {
+  return unwrap<{ venue: VenueSummary }>(client(fetchFn).api.admin.venues({ venueId }).get());
+}
+
+export async function updateVenue(
+  venueId: string,
+  body: PatchVenueInput,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ venue: VenueSummary }> {
+  return unwrap<{ venue: VenueSummary }>(
+    client(fetchFn).api.admin.venues({ venueId }).patch(body),
+  );
+}
+
+export async function deleteVenue(
+  venueId: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<void> {
+  await unwrap(client(fetchFn).api.admin.venues({ venueId }).delete());
 }
 
 export async function createBoard(

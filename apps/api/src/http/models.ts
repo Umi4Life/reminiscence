@@ -24,11 +24,14 @@ export const apiModels = new Elysia({ name: "api-models" }).model({
   AddEntryBody: schemas.AddEntryBody,
   CreateOrganizationBody: schemas.CreateOrganizationBody,
   PatchOrganizationBody: schemas.PatchOrganizationBody,
+  CreateVenueBody: schemas.CreateVenueBody,
+  PatchVenueBody: schemas.PatchVenueBody,
   CreateBoardBody: schemas.CreateBoardBody,
   PatchBoardBody: schemas.PatchBoardBody,
 
   // Path params & query strings
   OrgIdParams: schemas.OrgIdParams,
+  VenueIdParams: schemas.VenueIdParams,
   BoardIdParams: schemas.BoardIdParams,
   PublicSlugParams: schemas.PublicSlugParams,
   EntryParams: schemas.EntryParams,

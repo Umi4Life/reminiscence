@@ -46,12 +46,4 @@ export const apiModels = new Elysia({ name: "api-models" }).model({
 
   // Error envelope (referenced at the response slot on nearly every route)
   ErrorResponse: schemas.ErrorResponse,
-
-  // Admin user management
-  CreateAdminBody: schemas.CreateAdminBody,
-  PatchAdminBody: schemas.PatchAdminBody,
-  ResetAdminPasswordBody: schemas.ResetAdminPasswordBody,
-  AssignMembershipBody: schemas.AssignMembershipBody,
-  AdminUserIdParams: schemas.AdminUserIdParams,
-  MembershipIdParams: schemas.MembershipIdParams,
 });

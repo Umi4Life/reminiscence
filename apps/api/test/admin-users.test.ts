@@ -27,6 +27,7 @@ function adminSummary(
     displayName,
     status: options.status ?? "active",
     isSuperAdmin: options.isSuperAdmin ?? false,
+    memberships: [],
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -61,6 +62,7 @@ function createFakeAdminManagementService(
         displayName: input.displayName,
         status: input.status,
         isSuperAdmin: false,
+        memberships: [],
         createdAt: new Date(),
         updatedAt: new Date(),
       };

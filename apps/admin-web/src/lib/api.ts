@@ -343,11 +343,8 @@ export async function resetAdminPassword(
   newPassword: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<void> {
-  await unwrap(
-    client(fetchFn)
-      .api.admin.admins({ adminUserId })
-      ["password-reset"].post({ password: newPassword }),
-  );
+  const adminApi = client(fetchFn).api.admin.admins({ adminUserId });
+  await unwrap(adminApi["password-reset"].post({ password: newPassword }));
 }
 
 export async function assignMembership(

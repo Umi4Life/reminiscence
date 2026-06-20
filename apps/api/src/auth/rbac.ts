@@ -194,3 +194,10 @@ export function assertSuperAdmin(context: AdminRbacContext, message?: string): v
     throw forbiddenError(message);
   }
 }
+
+// Returns the organization IDs where this context holds an org_owner role.
+export function getOwnedOrganizationIds(context: AdminRbacContext): string[] {
+  return context.memberships
+    .filter((m) => m.role === "org_owner" && m.venueId === null)
+    .map((m) => m.organizationId);
+}

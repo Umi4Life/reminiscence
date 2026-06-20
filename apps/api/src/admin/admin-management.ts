@@ -1,8 +1,9 @@
 import type { AdminMembership, AdminUser, Database } from "@queue-reminiscence/db";
 import { adminMemberships, adminSessions, adminUsers } from "@queue-reminiscence/db/schema";
-import { and, count, eq, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNull } from "drizzle-orm";
 
 import { hashPassword } from "../auth/passwords";
+import { canManagePlatform, getOwnedOrganizationIds, type AdminRbacContext } from "../auth/rbac";
 
 export interface AdminUserSummary {
   id: string;
@@ -36,20 +37,35 @@ export type CreateAdminResult =
   | { status: "created"; admin: AdminUserSummary }
   | { status: "conflict" };
 
+export type ListAdminsResult =
+  | { status: "ok"; admins: AdminUserSummary[] }
+  | { status: "forbidden" };
+
 export type UpdateAdminResult =
   | { status: "updated"; admin: AdminUserSummary }
   | { status: "not_found" }
   | { status: "forbidden" }
   | { status: "last_super_admin" };
 
-export type ResetAdminPasswordResult = { status: "reset" } | { status: "not_found" };
+export type ResetAdminPasswordResult =
+  | { status: "reset" }
+  | { status: "not_found" }
+  | { status: "forbidden" };
 
 export interface AdminManagementService {
-  listAdmins(): Promise<AdminUserSummary[]>;
+  listAdmins(rbac: AdminRbacContext): Promise<ListAdminsResult>;
   getAdmin(adminUserId: string): Promise<AdminUserSummary | null>;
   createAdmin(input: CreateAdminInput): Promise<CreateAdminResult>;
-  updateAdmin(adminUserId: string, patch: PatchAdminInput): Promise<UpdateAdminResult>;
-  resetPassword(adminUserId: string, newPassword: string): Promise<ResetAdminPasswordResult>;
+  updateAdmin(
+    rbac: AdminRbacContext,
+    adminUserId: string,
+    patch: PatchAdminInput,
+  ): Promise<UpdateAdminResult>;
+  resetPassword(
+    rbac: AdminRbacContext,
+    adminUserId: string,
+    newPassword: string,
+  ): Promise<ResetAdminPasswordResult>;
 }
 
 function toMembershipSummary(m: AdminMembership) {
@@ -93,15 +109,49 @@ async function revokeAdminSessions(db: Database, adminUserId: string): Promise<v
 
 export function createDbAdminManagementService(db: Database): AdminManagementService {
   return {
-    async listAdmins(): Promise<AdminUserSummary[]> {
-      const rows = await db.select().from(adminUsers).orderBy(adminUsers.createdAt);
-      const allMemberships = await db.select().from(adminMemberships);
-      return rows.map((admin) =>
-        toAdminUserSummary(
-          admin,
-          allMemberships.filter((membership) => membership.adminUserId === admin.id),
+    async listAdmins(rbac): Promise<ListAdminsResult> {
+      if (canManagePlatform(rbac)) {
+        const rows = await db.select().from(adminUsers).orderBy(adminUsers.createdAt);
+        const allMemberships = await db.select().from(adminMemberships);
+        return {
+          status: "ok",
+          admins: rows.map((admin) =>
+            toAdminUserSummary(
+              admin,
+              allMemberships.filter((m) => m.adminUserId === admin.id),
+            ),
+          ),
+        };
+      }
+
+      // Org-owner: return only admins with memberships in their org(s)
+      const ownedOrgIds = getOwnedOrganizationIds(rbac);
+      if (ownedOrgIds.length === 0) return { status: "forbidden" };
+
+      const orgMemberships = await db
+        .select()
+        .from(adminMemberships)
+        .where(inArray(adminMemberships.organizationId, ownedOrgIds));
+
+      if (orgMemberships.length === 0) return { status: "ok", admins: [] };
+
+      const adminUserIds = [...new Set(orgMemberships.map((m) => m.adminUserId))];
+
+      const rows = await db
+        .select()
+        .from(adminUsers)
+        .where(inArray(adminUsers.id, adminUserIds))
+        .orderBy(adminUsers.createdAt);
+
+      return {
+        status: "ok",
+        admins: rows.map((admin) =>
+          toAdminUserSummary(
+            admin,
+            orgMemberships.filter((m) => m.adminUserId === admin.id),
+          ),
         ),
-      );
+      };
     },
 
     async getAdmin(adminUserId: string): Promise<AdminUserSummary | null> {
@@ -144,28 +194,47 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
       return { status: "created", admin: toAdminUserSummary(created, []) };
     },
 
-    async updateAdmin(adminUserId: string, patch: PatchAdminInput): Promise<UpdateAdminResult> {
+    async updateAdmin(rbac, adminUserId, patch): Promise<UpdateAdminResult> {
       const [admin] = await db
         .select()
         .from(adminUsers)
         .where(eq(adminUsers.id, adminUserId))
         .limit(1);
 
-      if (!admin) {
-        return { status: "not_found" };
-      }
+      if (!admin) return { status: "not_found" };
 
-      if (patch.status === "disabled" && admin.isSuperAdmin) {
-        const [result] = await db
-          .select({ cnt: count() })
-          .from(adminUsers)
-          .where(and(eq(adminUsers.status, "active"), eq(adminUsers.isSuperAdmin, true)));
+      if (!canManagePlatform(rbac)) {
+        // Org-owner path: target must be in one of their orgs and must not be a super-admin
+        const ownedOrgIds = getOwnedOrganizationIds(rbac);
+        if (ownedOrgIds.length === 0) return { status: "not_found" };
 
-        if (result && result.cnt <= 1) {
-          return { status: "last_super_admin" };
+        const [inOrgMembership] = await db
+          .select({ id: adminMemberships.id })
+          .from(adminMemberships)
+          .where(
+            and(
+              eq(adminMemberships.adminUserId, adminUserId),
+              inArray(adminMemberships.organizationId, ownedOrgIds),
+            ),
+          )
+          .limit(1);
+
+        if (!inOrgMembership) return { status: "not_found" };
+        if (admin.isSuperAdmin) return { status: "forbidden" };
+      } else {
+        // Super-admin path: cannot disable a super-admin at all
+        if (patch.status === "disabled" && admin.isSuperAdmin) {
+          const [result] = await db
+            .select({ cnt: count() })
+            .from(adminUsers)
+            .where(and(eq(adminUsers.status, "active"), eq(adminUsers.isSuperAdmin, true)));
+
+          if (result && result.cnt <= 1) {
+            return { status: "last_super_admin" };
+          }
+
+          return { status: "forbidden" };
         }
-
-        return { status: "forbidden" };
       }
 
       const updates: Partial<Pick<AdminUser, "displayName" | "status">> = {};
@@ -186,18 +255,33 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
       return { status: "updated", admin: toAdminUserSummary(updated, memberships) };
     },
 
-    async resetPassword(
-      adminUserId: string,
-      newPassword: string,
-    ): Promise<ResetAdminPasswordResult> {
+    async resetPassword(rbac, adminUserId, newPassword): Promise<ResetAdminPasswordResult> {
       const [admin] = await db
-        .select({ id: adminUsers.id })
+        .select({ id: adminUsers.id, isSuperAdmin: adminUsers.isSuperAdmin })
         .from(adminUsers)
         .where(eq(adminUsers.id, adminUserId))
         .limit(1);
 
-      if (!admin) {
-        return { status: "not_found" };
+      if (!admin) return { status: "not_found" };
+
+      if (!canManagePlatform(rbac)) {
+        // Org-owner path: target must be in their org and must not be a super-admin
+        const ownedOrgIds = getOwnedOrganizationIds(rbac);
+        if (ownedOrgIds.length === 0) return { status: "not_found" };
+
+        const [inOrgMembership] = await db
+          .select({ id: adminMemberships.id })
+          .from(adminMemberships)
+          .where(
+            and(
+              eq(adminMemberships.adminUserId, adminUserId),
+              inArray(adminMemberships.organizationId, ownedOrgIds),
+            ),
+          )
+          .limit(1);
+
+        if (!inOrgMembership) return { status: "not_found" };
+        if (admin.isSuperAdmin) return { status: "forbidden" };
       }
 
       const passwordHash = await hashPassword(newPassword);

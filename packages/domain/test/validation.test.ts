@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { validateDisplayName, validateSlug } from "../src";
+import { validateDisplayName, validateSlug, validateTimezone } from "../src";
 
 describe("validateDisplayName", () => {
   test("trims leading and trailing whitespace", () => {
@@ -67,6 +67,55 @@ describe("validateSlug", () => {
       ok: false,
       code: "slug_required",
       message: "Slug is required.",
+    });
+  });
+});
+
+describe("validateTimezone", () => {
+  test("accepts known IANA zones", () => {
+    expect(validateTimezone("UTC")).toEqual({ ok: true, value: "UTC" });
+    expect(validateTimezone("Asia/Bangkok")).toEqual({ ok: true, value: "Asia/Bangkok" });
+    expect(validateTimezone("America/New_York")).toEqual({ ok: true, value: "America/New_York" });
+  });
+
+  test("trims surrounding whitespace and accepts valid zone", () => {
+    expect(validateTimezone("  UTC  ")).toEqual({ ok: true, value: "UTC" });
+  });
+
+  test("rejects blank input", () => {
+    expect(validateTimezone("")).toEqual({
+      ok: false,
+      code: "timezone_required",
+      message: "Timezone is required.",
+    });
+  });
+
+  test("rejects whitespace-only input", () => {
+    expect(validateTimezone("   ")).toEqual({
+      ok: false,
+      code: "timezone_required",
+      message: "Timezone is required.",
+    });
+  });
+
+  test("rejects random text", () => {
+    expect(validateTimezone("notazone")).toEqual({
+      ok: false,
+      code: "timezone_invalid",
+      message: "Timezone must be a valid IANA timezone name.",
+    });
+  });
+
+  test("rejects malformed zone names", () => {
+    expect(validateTimezone("America/")).toEqual({
+      ok: false,
+      code: "timezone_invalid",
+      message: "Timezone must be a valid IANA timezone name.",
+    });
+    expect(validateTimezone("Not/A/Zone")).toEqual({
+      ok: false,
+      code: "timezone_invalid",
+      message: "Timezone must be a valid IANA timezone name.",
     });
   });
 });

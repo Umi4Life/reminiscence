@@ -1,0 +1,97 @@
+name: queue-reminiscence
+# Deploy Reminiscence from the prebuilt GHCR image — no local build required.
+#
+# All three app processes run from ONE image; the APP env var selects which
+# process starts (see docker-entrypoint.sh). The api container also runs DB
+# migrations (and the seed, if SEED_ADMIN_* are set) on start.
+#
+# Usage:
+#   cp .env.example .env && $EDITOR .env   # set secrets + seed admin
+#   export REMINISCENCE_TAG=latest         # or a pinned 1.2.3 / 1.2, or edge
+#   docker compose -f docker-compose.ghcr.yml up -d
+#
+# Image: ghcr.io/umi4life/reminiscence
+#   :latest         latest stable release (recommended for production)
+#   :1.2.3 / :1.2   pinned release (immutable patch / floating minor)
+#   :edge           latest main build (unstable — preview only)
+#   :<git-sha>      exact immutable build
+#
+# External Postgres instead of the bundled one? Delete the `postgres` service
+# and its `depends_on`, then point DATABASE_URL in .env at your server.
+
+x-image: &image ghcr.io/umi4life/reminiscence:${REMINISCENCE_TAG:-latest}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: qr-postgres
+    environment:
+      POSTGRES_USER: queue_reminiscence
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-queue_reminiscence}
+      POSTGRES_DB: queue_reminiscence
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U queue_reminiscence"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: *image
+    container_name: qr-api
+    env_file: .env
+    environment:
+      APP: api
+      # Override any localhost DSN from .env with the Docker-internal hostname
+      DATABASE_URL: postgres://queue_reminiscence:${POSTGRES_PASSWORD:-queue_reminiscence}@qr-postgres:5432/queue_reminiscence
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'bun -e "const r=await fetch(''http://localhost:3002/healthz'');process.exit(r.ok?0:1)"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  admin:
+    image: *image
+    container_name: qr-admin
+    env_file: .env
+    environment:
+      APP: admin-web
+      # Browser-side API calls — the URL the operator's browser reaches
+      PUBLIC_API_BASE_URL: ${API_ADMIN_BASE_URL:-http://localhost:3002/api}
+    ports:
+      - "3001:3001"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  display:
+    image: *image
+    container_name: qr-display
+    env_file: .env
+    environment:
+      APP: public-web
+      # Browser-side API calls — the URL the participant's browser reaches
+      PUBLIC_API_BASE_URL: ${API_PUBLIC_BASE_URL:-http://localhost:3002/api}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

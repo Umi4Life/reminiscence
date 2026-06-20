@@ -102,6 +102,18 @@ bun run --cwd packages/db db:seed
 
 Then open <http://localhost:3001>. See [`docs/deployment/local-development.md`](docs/deployment/local-development.md) for the service map and troubleshooting, and [`docs/deployment/homelab-traefik-postgres.md`](docs/deployment/homelab-traefik-postgres.md) for a homelab deployment with external Postgres + Traefik (`TRUST_PROXY=true`).
 
+## Deploy from the published image
+
+No source build required — pull the prebuilt image from GHCR ([`ghcr.io/umi4life/reminiscence`](https://github.com/Umi4Life/reminiscence/pkgs/container/reminiscence)):
+
+```bash
+cp .env.example .env   # set the three *_SECRET values and the seed admin
+export REMINISCENCE_TAG=latest   # or a pinned version like 1.2.3, or edge
+docker compose -f docker-compose.ghcr.yml up -d
+```
+
+The single image runs all three apps (`APP=api|admin-web|public-web`); the `api` process applies migrations and seeds on boot. See [`docs/deployment/ghcr-image.md`](docs/deployment/ghcr-image.md) for tags, external-Postgres setup, upgrades, and the stable-vs-unstable release strategy.
+
 ## API docs
 
 The Elysia API serves an interactive **OpenAPI UI at <http://localhost:3002/api/docs>** (raw spec at `/api/docs/json`) once the API is running. The document is generated directly from the route schemas by `@elysia/openapi` — there is no hand-maintained spec file to keep in sync.
@@ -139,11 +151,11 @@ The e2e suite boots its **own isolated Postgres container on port 5433** (never 
 ## Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, workspace layout, quality gate, conventions.
-- [`docs/deployment/`](docs/deployment/) — local and homelab operational guides.
+- [`docs/deployment/`](docs/deployment/) — local, GHCR-image, and homelab operational guides.
 - [`docs/journal/`](docs/journal/) — preserved MVP build history (architecture, product PRD, and the 14-phase plan + completion journals).
 
 ## Status
 
 **MVP complete** — Phases 0–14 are merged on `main`. Latest quality gate: `bun run check` green (231 unit tests; 6 `createDbRateLimiter` cases skip without `DATABASE_URL`), `bun run e2e` 10/10 passing.
 
-CI builds a single combined Docker image and publishes it to `ghcr.io/<owner>/queue-reminiscence` on every merge to `main` (tagged `:latest` and `:<git-sha>`). At container start, the `APP` environment variable selects which process to run (`api`, `admin-web`, or `public-web`).
+CI builds a single combined Docker image and publishes it to [`ghcr.io/umi4life/reminiscence`](https://github.com/Umi4Life/reminiscence/pkgs/container/reminiscence). Merges to `main` publish the **unstable** channel (`:edge`, `:<git-sha>`); pushing a `vX.Y.Z` tag publishes the **stable** channel (`:X.Y.Z`, `:X.Y`, `:X`, `:latest`). At container start, the `APP` environment variable selects which process to run (`api`, `admin-web`, or `public-web`). See [`docs/deployment/ghcr-image.md`](docs/deployment/ghcr-image.md).

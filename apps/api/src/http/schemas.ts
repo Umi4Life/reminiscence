@@ -184,6 +184,13 @@ export const AdminUserStatus = t.Union([t.Literal("active"), t.Literal("disabled
   description: "Admin user account status.",
 });
 
+export const AdminMembershipSummary = t.Object({
+  id: t.String(),
+  organizationId: t.String(),
+  venueId: t.Nullable(t.String()),
+  role: AdminMembershipRole,
+});
+
 export const CreateAdminBody = t.Object({
   email: t.String({ minLength: 1, description: "Admin email address (normalized to lowercase)." }),
   displayName: t.String({ minLength: 1, description: "Admin display name." }),
@@ -253,6 +260,7 @@ export const AdminUserSummary = t.Object({
   displayName: t.String(),
   status: AdminUserStatus,
   isSuperAdmin: t.Boolean(),
+  memberships: t.Array(AdminMembershipSummary),
   createdAt: t.Date(),
   updatedAt: t.Date(),
 });
@@ -301,13 +309,6 @@ export const AdminIdentity = t.Object({
   email: t.String(),
   displayName: t.String(),
   isSuperAdmin: t.Boolean(),
-});
-
-export const AdminMembershipSummary = t.Object({
-  id: t.String(),
-  organizationId: t.String(),
-  venueId: t.Nullable(t.String()),
-  role: AdminMembershipRole,
 });
 
 export const MembershipDetail = t.Object({

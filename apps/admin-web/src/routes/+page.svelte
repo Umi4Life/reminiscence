@@ -57,6 +57,11 @@
         <a href="/organizations" class="new-board-btn">Manage</a>
       </div>
       <div style="margin-bottom: 1.5rem;"></div>
+      <div class="section-header">
+        <h2 class="section-title">Admins</h2>
+        <a href="/admins" class="new-board-btn">Manage</a>
+      </div>
+      <div style="margin-bottom: 1.5rem;"></div>
     {/if}
 
     <div class="section-header">

@@ -23,3 +23,5 @@ export type PublicBoardEventItem = (typeof schemas.PublicBoardEventItem)["static
 export type PublicQueueEntryResult = (typeof schemas.PublicQueueEntryResult)["static"];
 export type DisplayStatePayload = (typeof schemas.DisplayStatePayload)["static"];
 export type ClaimAccessResult = (typeof schemas.ClaimAccessResult)["static"];
+export type AdminUserSummary = (typeof schemas.AdminUserSummary)["static"];
+export type AdminUserStatus = (typeof schemas.AdminUserStatus)["static"];

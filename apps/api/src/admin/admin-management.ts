@@ -1,5 +1,5 @@
-import type { AdminUser, Database } from "@queue-reminiscence/db";
-import { adminSessions, adminUsers } from "@queue-reminiscence/db/schema";
+import type { AdminMembership, AdminUser, Database } from "@queue-reminiscence/db";
+import { adminMemberships, adminSessions, adminUsers } from "@queue-reminiscence/db/schema";
 import { and, count, eq, isNull } from "drizzle-orm";
 
 import { hashPassword } from "../auth/passwords";
@@ -10,6 +10,12 @@ export interface AdminUserSummary {
   displayName: string;
   status: "active" | "disabled";
   isSuperAdmin: boolean;
+  memberships: Array<{
+    id: string;
+    organizationId: string;
+    venueId: string | null;
+    role: "org_owner" | "venue_manager" | "venue_staff";
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,16 +51,36 @@ export interface AdminManagementService {
   resetPassword(adminUserId: string, newPassword: string): Promise<ResetAdminPasswordResult>;
 }
 
-function toAdminUserSummary(admin: AdminUser): AdminUserSummary {
+function toMembershipSummary(m: AdminMembership) {
+  return {
+    id: m.id,
+    organizationId: m.organizationId,
+    venueId: m.venueId,
+    role: m.role,
+  };
+}
+
+function toAdminUserSummary(
+  admin: AdminUser,
+  memberships: AdminMembership[] = [],
+): AdminUserSummary {
   return {
     id: admin.id,
     email: admin.email,
     displayName: admin.displayName,
     status: admin.status,
     isSuperAdmin: admin.isSuperAdmin,
+    memberships: memberships.map(toMembershipSummary),
     createdAt: admin.createdAt,
     updatedAt: admin.updatedAt,
   };
+}
+
+async function loadMembershipsForUser(
+  db: Database,
+  adminUserId: string,
+): Promise<AdminMembership[]> {
+  return db.select().from(adminMemberships).where(eq(adminMemberships.adminUserId, adminUserId));
 }
 
 async function revokeAdminSessions(db: Database, adminUserId: string): Promise<void> {
@@ -67,15 +93,22 @@ async function revokeAdminSessions(db: Database, adminUserId: string): Promise<v
 export function createDbAdminManagementService(db: Database): AdminManagementService {
   return {
     async listAdmins(): Promise<AdminUserSummary[]> {
-      const rows = await db.select().from(adminUsers);
-      return rows.map(toAdminUserSummary);
+      const rows = await db.select().from(adminUsers).orderBy(adminUsers.createdAt);
+      const allMemberships = await db.select().from(adminMemberships);
+      return rows.map((admin) =>
+        toAdminUserSummary(
+          admin,
+          allMemberships.filter((membership) => membership.adminUserId === admin.id),
+        ),
+      );
     },
 
     async createAdmin(input: CreateAdminInput): Promise<CreateAdminResult> {
+      const normalizedEmail = input.email.trim().toLowerCase();
       const [existing] = await db
         .select({ id: adminUsers.id })
         .from(adminUsers)
-        .where(eq(adminUsers.email, input.email))
+        .where(eq(adminUsers.email, normalizedEmail))
         .limit(1);
 
       if (existing) {
@@ -83,19 +116,18 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
       }
 
       const passwordHash = await hashPassword(input.password);
-
       const [created] = await db
         .insert(adminUsers)
         .values({
-          email: input.email,
-          displayName: input.displayName,
+          email: normalizedEmail,
+          displayName: input.displayName.trim(),
           passwordHash,
           status: input.status,
           isSuperAdmin: false,
         })
         .returning();
 
-      return { status: "created", admin: toAdminUserSummary(created) };
+      return { status: "created", admin: toAdminUserSummary(created, []) };
     },
 
     async updateAdmin(adminUserId: string, patch: PatchAdminInput): Promise<UpdateAdminResult> {
@@ -136,7 +168,8 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
         await revokeAdminSessions(db, adminUserId);
       }
 
-      return { status: "updated", admin: toAdminUserSummary(updated) };
+      const memberships = await loadMembershipsForUser(db, adminUserId);
+      return { status: "updated", admin: toAdminUserSummary(updated, memberships) };
     },
 
     async resetPassword(
@@ -154,9 +187,7 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
       }
 
       const passwordHash = await hashPassword(newPassword);
-
       await db.update(adminUsers).set({ passwordHash }).where(eq(adminUsers.id, adminUserId));
-
       await revokeAdminSessions(db, adminUserId);
 
       return { status: "reset" };

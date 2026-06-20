@@ -2,6 +2,7 @@ import { treaty } from "@elysia/eden";
 import type {
   App,
   AdminSessionContext,
+  AdminUserSummary,
   BoardSummary,
   OrganizationSummary,
   PublicBoardEventItem,
@@ -18,7 +19,14 @@ type FetchFn = typeof globalThis.fetch;
 // network boundary) rather than re-declared here. Note: date fields are typed
 // `Date` (from the server's `t.Date()` schemas) but arrive as ISO strings over
 // HTTP — consume them via `new Date(value)`, never by calling Date methods.
-export type { BoardSummary, OrganizationSummary, RotatedBoardAccessCredential, VenueSummary };
+export type {
+  AdminUserSummary,
+  BoardSummary,
+  OrganizationSummary,
+  RotatedBoardAccessCredential,
+  VenueSummary,
+};
+export type AdminUserStatus = "active" | "disabled";
 export type MeData = AdminSessionContext;
 export type RotateResult = { board: BoardSummary; credential: RotatedBoardAccessCredential };
 export type PublicBoardData = PublicBoardReadData;
@@ -279,4 +287,80 @@ export async function getPublicBoardEvents(
       .api.public.boards({ publicSlug })
       .events.get(limit !== undefined ? { query: { limit } } : {}),
   );
+}
+
+export interface CreateAdminInput {
+  email: string;
+  displayName: string;
+  password: string;
+}
+
+export interface PatchAdminInput {
+  displayName?: string;
+  status?: AdminUserStatus;
+}
+
+export interface AssignMembershipInput {
+  organizationId: string;
+  venueId?: string | null;
+  role: "org_owner" | "venue_manager" | "venue_staff";
+}
+
+export async function listAdmins(
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ admins: AdminUserSummary[] }> {
+  return unwrap<{ admins: AdminUserSummary[] }>(client(fetchFn).api.admin.admins.get());
+}
+
+export async function createAdmin(
+  body: CreateAdminInput,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ admin: AdminUserSummary }> {
+  return unwrap<{ admin: AdminUserSummary }>(client(fetchFn).api.admin.admins.post(body));
+}
+
+export async function getAdmin(
+  adminUserId: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ admin: AdminUserSummary }> {
+  return unwrap<{ admin: AdminUserSummary }>(
+    client(fetchFn).api.admin.admins({ adminUserId }).get(),
+  );
+}
+
+export async function updateAdmin(
+  adminUserId: string,
+  body: PatchAdminInput,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ admin: AdminUserSummary }> {
+  return unwrap<{ admin: AdminUserSummary }>(
+    client(fetchFn).api.admin.admins({ adminUserId }).patch(body),
+  );
+}
+
+export async function resetAdminPassword(
+  adminUserId: string,
+  newPassword: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<void> {
+  const adminApi = client(fetchFn).api.admin.admins({ adminUserId });
+  await unwrap(adminApi["password-reset"].post({ password: newPassword }));
+}
+
+export async function assignMembership(
+  adminUserId: string,
+  body: AssignMembershipInput,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{
+  membership: { id: string; organizationId: string; venueId: string | null; role: string };
+}> {
+  return unwrap(client(fetchFn).api.admin.memberships.post({ adminUserId, ...body }));
+}
+
+export async function revokeMembership(
+  adminUserId: string,
+  membershipId: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<void> {
+  await unwrap(client(fetchFn).api.admin.memberships({ id: membershipId }).delete());
 }

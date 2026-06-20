@@ -9,10 +9,7 @@ import {
   createDbBoardManagementService,
   type BoardManagementService,
 } from "./admin/board-management";
-import {
-  createDbOrgManagementService,
-  type OrgManagementService,
-} from "./admin/org-management";
+import { createDbOrgManagementService, type OrgManagementService } from "./admin/org-management";
 import { createDbBoardAccessService, type BoardAccessService } from "./access/board-access";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
 import { createDbPublicSessionService, type PublicSessionService } from "./auth/public-sessions";

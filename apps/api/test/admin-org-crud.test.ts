@@ -231,14 +231,11 @@ describe("admin org update (PATCH /api/admin/organizations/:orgId)", () => {
     const app = createSuperAdminApp();
 
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/admin/organizations/00000000-0000-4000-8000-000000000999`,
-        {
-          method: "PATCH",
-          headers: { cookie: sessionCookie, "content-type": "application/json" },
-          body: JSON.stringify({ name: "Ghost" }),
-        },
-      ),
+      new Request(`http://localhost/api/admin/organizations/00000000-0000-4000-8000-000000000999`, {
+        method: "PATCH",
+        headers: { cookie: sessionCookie, "content-type": "application/json" },
+        body: JSON.stringify({ name: "Ghost" }),
+      }),
     );
 
     expect(response.status).toBe(404);
@@ -266,13 +263,15 @@ describe("admin org delete (DELETE /api/admin/organizations/:orgId)", () => {
     // But ORG_A has venues in the fixture... the fake only checks ORG_B.
     // For a cleaner test, we need to delete a truly empty org.
     // Let's create a new org then delete it.
-    const orgMgmt = createFakeOrgManagementService([{
-      id: "00000000-0000-4000-8000-000000000099",
-      slug: "empty-org",
-      name: "Empty Org",
-      createdAt: new Date("2026-06-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-06-01T00:00:00.000Z"),
-    }]);
+    const orgMgmt = createFakeOrgManagementService([
+      {
+        id: "00000000-0000-4000-8000-000000000099",
+        slug: "empty-org",
+        name: "Empty Org",
+        createdAt: new Date("2026-06-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-06-01T00:00:00.000Z"),
+      },
+    ]);
     const app = createTestApp({
       config: testAppConfig,
       adminAuthService: createFakeAuthService([], { isSuperAdmin: true }),
@@ -282,13 +281,10 @@ describe("admin org delete (DELETE /api/admin/organizations/:orgId)", () => {
     });
 
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/admin/organizations/00000000-0000-4000-8000-000000000099`,
-        {
-          method: "DELETE",
-          headers: { cookie: sessionCookie },
-        },
-      ),
+      new Request(`http://localhost/api/admin/organizations/00000000-0000-4000-8000-000000000099`, {
+        method: "DELETE",
+        headers: { cookie: sessionCookie },
+      }),
     );
 
     expect(response.status).toBe(200);
@@ -349,13 +345,10 @@ describe("admin org delete (DELETE /api/admin/organizations/:orgId)", () => {
     const app = createSuperAdminApp();
 
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/admin/organizations/00000000-0000-4000-8000-000000000999`,
-        {
-          method: "DELETE",
-          headers: { cookie: sessionCookie },
-        },
-      ),
+      new Request(`http://localhost/api/admin/organizations/00000000-0000-4000-8000-000000000999`, {
+        method: "DELETE",
+        headers: { cookie: sessionCookie },
+      }),
     );
 
     expect(response.status).toBe(404);

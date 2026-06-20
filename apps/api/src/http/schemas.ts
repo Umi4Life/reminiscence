@@ -147,11 +147,33 @@ export const PatchBoardBody = t.Object({
   publicRemovePolicy: t.Optional(PublicMutationPolicy),
 });
 
+export const CreateVenueBody = t.Object({
+  organizationId: t.String({
+    pattern: UuidPattern,
+    description: "Organisation that owns the venue.",
+  }),
+  slug: t.String({ minLength: 1, description: "Unique within the organisation." }),
+  name: t.String({ minLength: 1 }),
+  timezone: t.String({ minLength: 1, description: "IANA timezone name, e.g. Asia/Bangkok." }),
+  address: t.Optional(t.Nullable(t.String())),
+});
+
+export const PatchVenueBody = t.Object({
+  slug: t.Optional(t.String({ minLength: 1 })),
+  name: t.Optional(t.String({ minLength: 1 })),
+  timezone: t.Optional(t.String({ minLength: 1 })),
+  address: t.Optional(t.Nullable(t.String())),
+});
+
 // ---------------------------------------------------------------------------
 // Path params & query strings
 // ---------------------------------------------------------------------------
 export const OrgIdParams = t.Object({
   orgId: t.String({ description: "Organization identifier (UUID)." }),
+});
+
+export const VenueIdParams = t.Object({
+  venueId: t.String({ description: "Venue identifier (UUID)." }),
 });
 
 export const BoardIdParams = t.Object({

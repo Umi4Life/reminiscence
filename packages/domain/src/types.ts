@@ -20,3 +20,7 @@ export type DisplayNameValidationResult = ValidationResult<string, DisplayNameVa
 export type SlugValidationCode = "slug_required" | "slug_invalid";
 
 export type SlugValidationResult = ValidationResult<string, SlugValidationCode>;
+
+export type TimezoneValidationCode = "timezone_required" | "timezone_invalid";
+
+export type TimezoneValidationResult = ValidationResult<string, TimezoneValidationCode>;

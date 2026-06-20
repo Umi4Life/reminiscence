@@ -1,4 +1,8 @@
-import type { DisplayNameValidationResult, SlugValidationResult } from "./types";
+import type {
+  DisplayNameValidationResult,
+  SlugValidationResult,
+  TimezoneValidationResult,
+} from "./types";
 
 const maxDisplayNameLength = 40;
 const slugPattern = /^[a-z0-9._~-]+$/;
@@ -43,4 +47,42 @@ export function validateSlug(input: string): SlugValidationResult {
   }
 
   return { ok: true, value: input };
+}
+
+function isSupportedTimezone(tz: string): boolean {
+  if (typeof Intl.supportedValuesOf === "function") {
+    try {
+      return Intl.supportedValuesOf("timeZone").includes(tz);
+    } catch {
+      // fall through to constructor fallback
+    }
+  }
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function validateTimezone(input: string): TimezoneValidationResult {
+  const value = input.trim();
+
+  if (value.length === 0) {
+    return {
+      ok: false,
+      code: "timezone_required",
+      message: "Timezone is required.",
+    };
+  }
+
+  if (!isSupportedTimezone(value)) {
+    return {
+      ok: false,
+      code: "timezone_invalid",
+      message: "Timezone must be a valid IANA timezone name.",
+    };
+  }
+
+  return { ok: true, value };
 }

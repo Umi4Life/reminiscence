@@ -19,6 +19,7 @@ import * as schemas from "./schemas";
 export const apiModels = new Elysia({ name: "api-models" }).model({
   // Request bodies
   LoginBody: schemas.LoginBody,
+  ChangePasswordBody: schemas.ChangePasswordBody,
   ClaimAccessBody: schemas.ClaimAccessBody,
   AddEntryBody: schemas.AddEntryBody,
   CreateBoardBody: schemas.CreateBoardBody,

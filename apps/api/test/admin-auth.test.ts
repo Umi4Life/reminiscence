@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { AdminAuthService, LoginResult } from "../src/auth/admin-sessions";
 import { ADMIN_SESSION_COOKIE_NAME } from "../src/auth/admin-sessions";
-import { rateLimitedError, unauthorizedError } from "../src/http/errors";
+import { rateLimitedError, unauthorizedError, validationError } from "../src/http/errors";
 import type { RateLimiter } from "../src/rate-limit/rate-limiter";
 import { createTestApp } from "../src/app";
 import { testAppConfig } from "./test-config";
@@ -56,6 +56,48 @@ function createFakeAuthService(): AdminAuthService & { loggedOutTokens: string[]
     async logout(token: string): Promise<void> {
       loggedOutTokens.push(token);
     },
+
+    async changePassword(): Promise<void> {
+      throw new Error("changePassword not expected in this test context");
+    },
+  };
+}
+
+function createAdvancedFakeAuthService(): AdminAuthService {
+  const validTokens = new Set(["test-session-token", "other-session-token"]);
+  let password = "correct-password";
+
+  return {
+    async login(): Promise<LoginResult> {
+      throw unauthorizedError("Invalid email or password.");
+    },
+
+    async resolve(token: string) {
+      if (!validTokens.has(token)) throw unauthorizedError();
+      return activeContext;
+    },
+
+    async logout(token: string): Promise<void> {
+      validTokens.delete(token);
+    },
+
+    async changePassword(
+      _adminUserId: string,
+      currentPassword: string,
+      newPassword: string,
+      currentToken: string,
+    ): Promise<void> {
+      if (currentPassword !== password) {
+        throw unauthorizedError("Current password is incorrect.");
+      }
+      if (currentPassword === newPassword) {
+        throw validationError("New password must differ from the current password.");
+      }
+      password = newPassword;
+      for (const token of [...validTokens]) {
+        if (token !== currentToken) validTokens.delete(token);
+      }
+    },
   };
 }
 
@@ -77,7 +119,7 @@ function createBlockingRateLimiter(blockedScope: string): RateLimiter {
 }
 
 function createAppWithFakeAuth(
-  authService = createFakeAuthService(),
+  authService: AdminAuthService = createFakeAuthService(),
   rateLimiter: RateLimiter = createPermissiveRateLimiter(),
 ) {
   return createTestApp({
@@ -258,5 +300,163 @@ describe("admin auth routes", () => {
     expect(cookie.includes(`${ADMIN_SESSION_COOKIE_NAME}=`)).toBe(true);
     expect(cookie.includes("Max-Age=0")).toBe(true);
     expect(cookie.includes("HttpOnly")).toBe(true);
+  });
+});
+
+describe("change-password route", () => {
+  test("unauthenticated request returns 401", async () => {
+    const app = createAppWithFakeAuth();
+
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/auth/change-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: "correct-password",
+          newPassword: "new-password-1",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  test("rate limiter is invoked with admin_change_password scope", async () => {
+    const app = createAppWithFakeAuth(
+      createFakeAuthService(),
+      createBlockingRateLimiter("admin_change_password"),
+    );
+
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/auth/change-password", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ADMIN_SESSION_COOKIE_NAME}=test-session-token`,
+        },
+        body: JSON.stringify({
+          currentPassword: "correct-password",
+          newPassword: "new-password-1",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+  });
+
+  test("successful change returns { ok: true, data: { changed: true } }", async () => {
+    const app = createAppWithFakeAuth(createAdvancedFakeAuthService());
+
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/auth/change-password", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ADMIN_SESSION_COOKIE_NAME}=test-session-token`,
+        },
+        body: JSON.stringify({
+          currentPassword: "correct-password",
+          newPassword: "new-password-1",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, data: { changed: true } });
+  });
+
+  test("current session remains resolvable after password change", async () => {
+    const authService = createAdvancedFakeAuthService();
+    const app = createAppWithFakeAuth(authService);
+
+    await app.handle(
+      new Request("http://localhost/api/admin/auth/change-password", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ADMIN_SESSION_COOKIE_NAME}=test-session-token`,
+        },
+        body: JSON.stringify({
+          currentPassword: "correct-password",
+          newPassword: "new-password-1",
+        }),
+      }),
+    );
+
+    const meResponse = await app.handle(
+      new Request("http://localhost/api/admin/me", {
+        headers: { cookie: `${ADMIN_SESSION_COOKIE_NAME}=test-session-token` },
+      }),
+    );
+
+    expect(meResponse.status).toBe(200);
+  });
+
+  test("other sessions for the same admin become unresolvable after password change", async () => {
+    const authService = createAdvancedFakeAuthService();
+    const app = createAppWithFakeAuth(authService);
+
+    await app.handle(
+      new Request("http://localhost/api/admin/auth/change-password", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ADMIN_SESSION_COOKIE_NAME}=test-session-token`,
+        },
+        body: JSON.stringify({
+          currentPassword: "correct-password",
+          newPassword: "new-password-1",
+        }),
+      }),
+    );
+
+    const meResponse = await app.handle(
+      new Request("http://localhost/api/admin/me", {
+        headers: { cookie: `${ADMIN_SESSION_COOKIE_NAME}=other-session-token` },
+      }),
+    );
+
+    expect(meResponse.status).toBe(401);
+  });
+
+  test("wrong current password returns 401", async () => {
+    const app = createAppWithFakeAuth(createAdvancedFakeAuthService());
+
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/auth/change-password", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ADMIN_SESSION_COOKIE_NAME}=test-session-token`,
+        },
+        body: JSON.stringify({ currentPassword: "wrong-password", newPassword: "new-password-1" }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    const json = (await response.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("unauthorized");
+  });
+
+  test("same-as-current new password returns 400 with validation_error", async () => {
+    const app = createAppWithFakeAuth(createAdvancedFakeAuthService());
+
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/auth/change-password", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ADMIN_SESSION_COOKIE_NAME}=test-session-token`,
+        },
+        body: JSON.stringify({
+          currentPassword: "correct-password",
+          newPassword: "correct-password",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const json = (await response.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("validation_error");
   });
 });

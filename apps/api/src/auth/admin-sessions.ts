@@ -1,9 +1,9 @@
 import type { AppConfig } from "@queue-reminiscence/config";
 import type { AdminMembership, AdminUser, Database } from "@queue-reminiscence/db";
 import { adminMemberships, adminSessions, adminUsers } from "@queue-reminiscence/db/schema";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, ne } from "drizzle-orm";
 
-import { unauthorizedError } from "../http/errors";
+import { unauthorizedError, validationError } from "../http/errors";
 import { hashPassword, verifyPassword } from "./passwords";
 import { generateSessionToken, hashSessionToken } from "../security/session-tokens";
 
@@ -53,6 +53,12 @@ export interface AdminAuthService {
   login(email: string, password: string): Promise<LoginResult>;
   resolve(token: string): Promise<AdminSessionContext>;
   logout(token: string): Promise<void>;
+  changePassword(
+    adminUserId: string,
+    currentPassword: string,
+    newPassword: string,
+    currentToken: string,
+  ): Promise<void>;
 }
 
 function normalizeEmail(email: string): string {
@@ -187,6 +193,53 @@ export function createDbAdminAuthService(db: Database, config: AppConfig): Admin
         .update(adminSessions)
         .set({ revokedAt: new Date() })
         .where(and(eq(adminSessions.tokenHash, tokenHash), isNull(adminSessions.revokedAt)));
+    },
+
+    async changePassword(
+      adminUserId: string,
+      currentPassword: string,
+      newPassword: string,
+      currentToken: string,
+    ): Promise<void> {
+      const [admin] = await db
+        .select()
+        .from(adminUsers)
+        .where(eq(adminUsers.id, adminUserId))
+        .limit(1);
+
+      if (!admin) {
+        throw unauthorizedError();
+      }
+
+      const passwordMatches = await verifyPassword(currentPassword, admin.passwordHash);
+
+      if (!passwordMatches) {
+        throw unauthorizedError("Current password is incorrect.");
+      }
+
+      if (currentPassword === newPassword) {
+        throw validationError("New password must differ from the current password.");
+      }
+
+      const newHash = await hashPassword(newPassword);
+      const currentTokenHash = hashSessionToken(currentToken, config.sessionSecret);
+      const now = new Date();
+
+      await db
+        .update(adminUsers)
+        .set({ passwordHash: newHash })
+        .where(eq(adminUsers.id, adminUserId));
+
+      await db
+        .update(adminSessions)
+        .set({ revokedAt: now })
+        .where(
+          and(
+            eq(adminSessions.adminUserId, adminUserId),
+            ne(adminSessions.tokenHash, currentTokenHash),
+            isNull(adminSessions.revokedAt),
+          ),
+        );
     },
   };
 }

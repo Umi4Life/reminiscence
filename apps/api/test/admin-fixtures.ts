@@ -156,6 +156,10 @@ export function createFakeAuthService(
     },
 
     async logout() {},
+
+    async changePassword(): Promise<void> {
+      throw new Error("changePassword not implemented in test fake");
+    },
   };
 }
 

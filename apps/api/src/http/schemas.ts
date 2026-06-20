@@ -80,9 +80,19 @@ export const success = <T extends TSchema>(data: T) => t.Object({ ok: t.Literal(
 // ---------------------------------------------------------------------------
 // Request bodies
 // ---------------------------------------------------------------------------
+export const PASSWORD_MIN_LENGTH = 8;
+
 export const LoginBody = t.Object({
   email: t.String({ minLength: 1, description: "Admin email address." }),
   password: t.String({ minLength: 1, description: "Admin password." }),
+});
+
+export const ChangePasswordBody = t.Object({
+  currentPassword: t.String({ minLength: 1, description: "Current admin password." }),
+  newPassword: t.String({
+    minLength: PASSWORD_MIN_LENGTH,
+    description: `New admin password (minimum ${PASSWORD_MIN_LENGTH} characters).`,
+  }),
 });
 
 export const ClaimAccessBody = t.Object({

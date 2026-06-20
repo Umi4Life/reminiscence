@@ -25,6 +25,11 @@ export interface AdminAuthRouteDeps {
 // never stores raw IPs or emails.
 const LOGIN_IP_LIMIT = { scope: "admin_login_ip", windowSeconds: 300, maxCount: 10 } as const;
 const LOGIN_EMAIL_LIMIT = { scope: "admin_login_email", windowSeconds: 900, maxCount: 8 } as const;
+const CHANGE_PASSWORD_LIMIT = {
+  scope: "admin_change_password",
+  windowSeconds: 300,
+  maxCount: 10,
+} as const;
 
 async function enforceLoginRateLimit(
   rateLimiter: RateLimiter,
@@ -37,6 +42,15 @@ async function enforceLoginRateLimit(
 
   await rateLimiter.checkAndIncrement({ ...LOGIN_IP_LIMIT, bucketKey: ipKey });
   await rateLimiter.checkAndIncrement({ ...LOGIN_EMAIL_LIMIT, bucketKey: emailKey });
+}
+
+async function enforceChangePasswordRateLimit(
+  rateLimiter: RateLimiter,
+  config: AppConfig,
+  request: Request,
+): Promise<void> {
+  const ipKey = hashClientIp(request, config) ?? "unknown";
+  await rateLimiter.checkAndIncrement({ ...CHANGE_PASSWORD_LIMIT, bucketKey: ipKey });
 }
 
 function serializeSessionCookie(
@@ -130,6 +144,45 @@ export function adminAuthRoutes(deps: AdminAuthRouteDeps) {
           summary: "Admin logout",
           description: "Revokes the current admin session and clears the session cookie.",
           tags: [API_TAGS.adminAuth],
+        },
+      },
+    )
+    .post(
+      "/api/admin/auth/change-password",
+      async ({ body, request }) => {
+        const token = readAdminSessionToken(request.headers);
+
+        if (!token) {
+          throw unauthorizedError();
+        }
+
+        await enforceChangePasswordRateLimit(deps.rateLimiter, deps.config, request);
+
+        const context = await deps.authService.resolve(token);
+
+        await deps.authService.changePassword(
+          context.admin.id,
+          body.currentPassword,
+          body.newPassword,
+          token,
+        );
+
+        return apiSuccess({ changed: true as const });
+      },
+      {
+        body: "ChangePasswordBody",
+        response: {
+          200: success(t.Object({ changed: t.Literal(true) })),
+          400: "ErrorResponse",
+          401: "ErrorResponse",
+          429: "ErrorResponse",
+        },
+        detail: {
+          summary: "Change admin password",
+          description:
+            "Changes the authenticated admin's password and revokes all other active sessions.",
+          tags: [API_TAGS.adminAuth],
+          security: [{ AdminSession: [] }],
         },
       },
     )

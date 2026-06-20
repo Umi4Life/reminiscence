@@ -158,6 +158,16 @@ export async function rotateAccessCredential(
   );
 }
 
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<void> {
+  await unwrap(
+    client(fetchFn).api.admin.auth["change-password"].post({ currentPassword, newPassword }),
+  );
+}
+
 export async function getPublicBoard(
   publicSlug: string,
   fetchFn: FetchFn = globalThis.fetch,

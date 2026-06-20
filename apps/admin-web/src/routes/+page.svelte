@@ -41,9 +41,12 @@
         <p class="header-label">Admin</p>
         <h1 class="header-name">{data.session?.admin.displayName ?? ""}</h1>
       </div>
-      <button class="logout-btn" onclick={doLogout} disabled={logoutBusy}>
-        {logoutBusy ? "Logging out…" : "Log out"}
-      </button>
+      <div class="header-actions">
+        <a href="/account" class="account-btn">Account</a>
+        <button class="logout-btn" onclick={doLogout} disabled={logoutBusy}>
+          {logoutBusy ? "Logging out…" : "Log out"}
+        </button>
+      </div>
     </div>
   </header>
 
@@ -117,6 +120,30 @@
     font-size: 1.375rem;
     font-weight: 600;
     color: var(--color-text);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .account-btn {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-text-strong);
+    text-decoration: none;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .account-btn:hover {
+    background: var(--color-bg);
+    text-decoration: none;
   }
 
   .logout-btn {

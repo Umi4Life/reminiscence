@@ -74,9 +74,19 @@ function resetBoardState(): void {
     `DELETE FROM board_events WHERE board_id = ${boardId};`,
     `DELETE FROM queue_entries WHERE board_id = ${boardId};`,
     `UPDATE boards SET status = 'closed' WHERE slug = 'chunithm-gold';`,
+    // Clear rate-limit buckets so repeated e2e runs don't hit throttling windows.
+    `DELETE FROM rate_limit_buckets;`,
   ].join(" ");
   runSilent(`docker exec ${CONTAINER} psql -U ${PG_USER} -d ${PG_USER} -c "${sql}"`);
   console.log("[global-setup] Board state reset.");
+}
+
+function resetAdminPassword(env: NodeJS.ProcessEnv): void {
+  const bunBin = `${process.env.HOME}/.bun/bin/bun`;
+  execSync(`${bunBin} run tests/e2e/helpers/reset-admin-password.ts`, {
+    stdio: "inherit",
+    env,
+  });
 }
 
 export default async function globalSetup(): Promise<void> {
@@ -103,5 +113,6 @@ export default async function globalSetup(): Promise<void> {
   console.log("[global-setup] Running db:seed...");
   execSync("bun run --cwd packages/db db:seed", { stdio: "inherit", env });
 
+  resetAdminPassword(env);
   resetBoardState();
 }

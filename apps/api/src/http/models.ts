@@ -29,12 +29,16 @@ export const apiModels = new Elysia({ name: "api-models" }).model({
   CreateBoardBody: schemas.CreateBoardBody,
   PatchBoardBody: schemas.PatchBoardBody,
   AssignMembershipBody: schemas.AssignMembershipBody,
+  CreateAdminBody: schemas.CreateAdminBody,
+  PatchAdminBody: schemas.PatchAdminBody,
+  AdminPasswordResetBody: schemas.AdminPasswordResetBody,
 
   // Path params & query strings
   OrgIdParams: schemas.OrgIdParams,
   MembershipIdParams: schemas.MembershipIdParams,
   VenueIdParams: schemas.VenueIdParams,
   BoardIdParams: schemas.BoardIdParams,
+  AdminUserIdParams: schemas.AdminUserIdParams,
   PublicSlugParams: schemas.PublicSlugParams,
   EntryParams: schemas.EntryParams,
   DisplayTokenParams: schemas.DisplayTokenParams,

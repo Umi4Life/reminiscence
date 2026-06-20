@@ -12,6 +12,7 @@ export const API_TAGS = {
   adminVenues: "Admin Venues",
   adminBoards: "Admin Boards",
   adminMemberships: "Admin Memberships",
+  adminUsers: "Admin Users",
   publicAccess: "Public Access",
   publicBoards: "Public Boards",
   qr: "QR",
@@ -128,6 +129,10 @@ export const openApiDocumentation: Partial<OpenAPIV3.Document> = {
     {
       name: API_TAGS.adminMemberships,
       description: "Assign and revoke org-level and venue-level admin memberships.",
+    },
+    {
+      name: API_TAGS.adminUsers,
+      description: "Create, list, update, and manage admin user accounts. Super-admin only.",
     },
     {
       name: API_TAGS.publicAccess,

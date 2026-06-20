@@ -180,6 +180,31 @@ export const AssignMembershipBody = t.Object({
   role: AdminMembershipRole,
 });
 
+export const AdminUserStatus = t.Union([t.Literal("active"), t.Literal("disabled")], {
+  description: "Admin user account status.",
+});
+
+export const CreateAdminBody = t.Object({
+  email: t.String({ minLength: 1, description: "Admin email address (normalized to lowercase)." }),
+  displayName: t.String({ minLength: 1, description: "Admin display name." }),
+  password: t.String({
+    minLength: PASSWORD_MIN_LENGTH,
+    description: `Temporary password (minimum ${PASSWORD_MIN_LENGTH} characters).`,
+  }),
+});
+
+export const PatchAdminBody = t.Object({
+  displayName: t.Optional(t.String({ minLength: 1, description: "Admin display name." })),
+  status: t.Optional(AdminUserStatus),
+});
+
+export const AdminPasswordResetBody = t.Object({
+  password: t.String({
+    minLength: PASSWORD_MIN_LENGTH,
+    description: `New password (minimum ${PASSWORD_MIN_LENGTH} characters).`,
+  }),
+});
+
 // ---------------------------------------------------------------------------
 // Path params & query strings
 // ---------------------------------------------------------------------------
@@ -197,6 +222,10 @@ export const VenueIdParams = t.Object({
 
 export const BoardIdParams = t.Object({
   boardId: t.String({ description: "Board identifier (UUID)." }),
+});
+
+export const AdminUserIdParams = t.Object({
+  adminUserId: t.String({ description: "Admin user identifier (UUID)." }),
 });
 export const PublicSlugParams = t.Object({
   publicSlug: t.String({ description: "Public board slug.", pattern: SlugPattern }),
@@ -218,6 +247,16 @@ export const EventsQuery = t.Object({
 // ---------------------------------------------------------------------------
 // Response data shapes (mirror the service return types exactly)
 // ---------------------------------------------------------------------------
+export const AdminUserSummary = t.Object({
+  id: t.String(),
+  email: t.String(),
+  displayName: t.String(),
+  status: AdminUserStatus,
+  isSuperAdmin: t.Boolean(),
+  createdAt: t.Date(),
+  updatedAt: t.Date(),
+});
+
 export const OrganizationSummary = t.Object({
   id: t.String(),
   slug: t.String(),

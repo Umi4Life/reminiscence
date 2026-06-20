@@ -18,6 +18,10 @@ import {
   createDbMembershipManagementService,
   type MembershipManagementService,
 } from "./admin/membership-management";
+import {
+  createDbAdminManagementService,
+  type AdminManagementService,
+} from "./admin/admin-management";
 import { createDbBoardAccessService, type BoardAccessService } from "./access/board-access";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
 import { createDbPublicSessionService, type PublicSessionService } from "./auth/public-sessions";
@@ -38,6 +42,7 @@ import { adminBoardsRoutes } from "./routes/admin-boards";
 import { adminOrganizationsRoutes } from "./routes/admin-organizations";
 import { adminVenuesRoutes } from "./routes/admin-venues";
 import { adminMembershipsRoutes } from "./routes/admin-memberships";
+import { adminUsersRoutes } from "./routes/admin-users";
 import { publicAccessRoutes } from "./routes/public-access";
 import { publicBoardsRoutes } from "./routes/public-boards";
 import { qrRoutes } from "./routes/qr";
@@ -56,6 +61,7 @@ export interface AppDeps {
   orgManagementService?: OrgManagementService;
   venueManagementService?: VenueManagementService;
   membershipManagementService?: MembershipManagementService;
+  adminManagementService?: AdminManagementService;
   boardAccessService?: BoardAccessService;
   publicSessionService?: PublicSessionService;
   publicBoardReadService?: PublicBoardReadService;
@@ -89,6 +95,7 @@ export function createApp(deps: AppDeps = {}) {
   const venueManagementService = deps.venueManagementService ?? createDbVenueManagementService(db);
   const membershipManagementService =
     deps.membershipManagementService ?? createDbMembershipManagementService(db);
+  const adminManagementService = deps.adminManagementService ?? createDbAdminManagementService(db);
   const boardAccessService = deps.boardAccessService ?? createDbBoardAccessService(db, config);
   const publicSessionService =
     deps.publicSessionService ?? createDbPublicSessionService(db, config);
@@ -105,6 +112,7 @@ export function createApp(deps: AppDeps = {}) {
     orgManagementService,
     venueManagementService,
     boardAccessService,
+    adminManagementService,
   };
 
   const allowedOrigins = buildAllowedOrigins(config);
@@ -193,6 +201,7 @@ export function createApp(deps: AppDeps = {}) {
     .use(adminVenuesRoutes(adminRouteDeps))
     .use(adminBoardsRoutes(adminRouteDeps))
     .use(adminMembershipsRoutes({ authService: adminAuthService, membershipManagementService }))
+    .use(adminUsersRoutes(adminRouteDeps))
     .use(publicAccessRoutes({ config, publicSessionService, rateLimiter }))
     .use(publicBoardsRoutes({ config, publicBoardReadService, queueMutationService, rateLimiter }))
     .use(

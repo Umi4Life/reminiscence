@@ -19,10 +19,7 @@ const hash = await Bun.password.hash(adminPassword, {
   timeCost: 2,
 });
 
-await db
-  .update(adminUsers)
-  .set({ passwordHash: hash })
-  .where(eq(adminUsers.email, adminEmail));
+await db.update(adminUsers).set({ passwordHash: hash }).where(eq(adminUsers.email, adminEmail));
 
 await sql.end();
 console.log(`[reset-admin-password] Reset password for ${adminEmail} to seed value.`);

@@ -178,7 +178,7 @@ export function createApp(deps: AppDeps = {}) {
     serve: { maxRequestBodySize: 64 * 1024 },
   })
     .use(openapi({ path: "/api/docs", documentation: openApiDocumentation }))
-    .onAfterHandle(({ request, response }) => {
+    .onAfterHandle({ as: "global" }, ({ request, response }) => {
       if (new URL(request.url).pathname !== "/api/docs/json") return;
       return stripInvalidOpenApiTypes(response);
     })

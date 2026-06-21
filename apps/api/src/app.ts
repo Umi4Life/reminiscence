@@ -173,7 +173,34 @@ export function createApp(deps: AppDeps = {}) {
         return apiFailure(forbiddenError("Cross-origin request rejected."));
       }
     })
-    .onError(({ error, set }) => {
+    .get("/", () => {
+      return new Response(
+        `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reminiscence</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 80px auto; padding: 0 1rem; color: #222; }
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+    p { color: #555; line-height: 1.5; }
+    a { color: #0070f3; }
+  </style>
+</head>
+<body>
+  <h1>Reminiscence</h1>
+</body>
+</html>`,
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    })
+    .onError(({ error, code, set }) => {
+      if (code === "NOT_FOUND") {
+        set.status = 404;
+        return { ok: false, error: { code: "not_found", message: "Not found." } };
+      }
+
       if (error instanceof ValidationError) {
         set.status = 400;
         let message = "Request validation failed.";

@@ -13,6 +13,7 @@ export const API_TAGS = {
   adminBoards: "Admin Boards",
   adminMemberships: "Admin Memberships",
   adminUsers: "Admin Users",
+  adminAuditLog: "Admin Audit Log",
   publicAccess: "Public Access",
   publicBoards: "Public Boards",
   qr: "QR",
@@ -133,6 +134,11 @@ export const openApiDocumentation: Partial<OpenAPIV3.Document> = {
     {
       name: API_TAGS.adminUsers,
       description: "Create, list, update, and manage admin user accounts. Super-admin only.",
+    },
+    {
+      name: API_TAGS.adminAuditLog,
+      description:
+        "Operational readback of the admin audit log. Super-admin sees all events; org-owner sees events scoped to their organization.",
     },
     {
       name: API_TAGS.publicAccess,

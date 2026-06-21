@@ -43,6 +43,7 @@ export const apiModels = new Elysia({ name: "api-models" }).model({
   EntryParams: schemas.EntryParams,
   DisplayTokenParams: schemas.DisplayTokenParams,
   EventsQuery: schemas.EventsQuery,
+  AuditEventsQuery: schemas.AuditEventsQuery,
 
   // Error envelope (referenced at the response slot on nearly every route)
   ErrorResponse: schemas.ErrorResponse,

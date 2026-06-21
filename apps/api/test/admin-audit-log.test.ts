@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import type { AdminAuditEventInput, AdminAuditLogService } from "../src/admin/admin-audit-log";
+import type {
+  AdminAuditEventInput,
+  AdminAuditEventRecord,
+  AdminAuditLogService,
+  AuditEventFilters,
+  ListAuditEventsResult,
+} from "../src/admin/admin-audit-log";
 import type { AdminManagementService } from "../src/admin/admin-management";
 import type {
   MembershipManagementService,
@@ -8,17 +14,21 @@ import type {
 } from "../src/admin/membership-management";
 import type { OrgManagementService } from "../src/admin/org-management";
 import type { OrganizationSummary } from "../src/admin/board-management";
+import type { AdminRbacContext } from "../src/auth/rbac";
+import { canManagePlatform, getOwnedOrganizationIds } from "../src/auth/rbac";
 import { createTestApp } from "../src/app";
 import {
   createFakeAuthService,
   createFakeOrgManagementService,
+  orgOwnerMembership,
   sessionCookie,
   ORG_A,
+  ORG_B,
 } from "./admin-fixtures";
 import { testAppConfig } from "./test-config";
 
 // ---------------------------------------------------------------------------
-// Capturing audit service
+// Capturing audit service (write-focused, list is a no-op)
 // ---------------------------------------------------------------------------
 
 function createCapturingAuditService(): {
@@ -32,6 +42,69 @@ function createCapturingAuditService(): {
       async record(event) {
         events.push(event);
       },
+      async listAuditEvents(): Promise<ListAuditEventsResult> {
+        return { status: "ok", events: [] };
+      },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// In-memory audit service (supports both record and list with RBAC scoping)
+// ---------------------------------------------------------------------------
+
+function createInMemoryAuditService(initial: AdminAuditEventRecord[] = []): AdminAuditLogService {
+  const stored: AdminAuditEventRecord[] = initial.map((e) => ({ ...e }));
+  let counter = 0;
+
+  return {
+    async record(event) {
+      stored.push({
+        id: `evt-${++counter}`,
+        actorAdminUserId: event.actorAdminUserId,
+        action: event.action,
+        targetId: event.targetId,
+        organizationId: event.organizationId ?? null,
+        metadata: event.metadata ?? null,
+        createdAt: new Date(),
+      });
+    },
+
+    async listAuditEvents(
+      rbac: AdminRbacContext,
+      filters: AuditEventFilters,
+    ): Promise<ListAuditEventsResult> {
+      const isSuperAdmin = canManagePlatform(rbac);
+      const ownedOrgIds = isSuperAdmin ? null : getOwnedOrganizationIds(rbac);
+
+      if (!isSuperAdmin && ownedOrgIds!.length === 0) {
+        return { status: "forbidden" };
+      }
+
+      let results = stored.slice();
+
+      if (filters.action !== undefined) {
+        results = results.filter((e) => e.action === filters.action);
+      }
+
+      if (filters.organizationId !== undefined) {
+        if (ownedOrgIds !== null && !ownedOrgIds.includes(filters.organizationId)) {
+          return { status: "forbidden" };
+        }
+        results = results.filter((e) => e.organizationId === filters.organizationId);
+      } else if (ownedOrgIds !== null) {
+        results = results.filter(
+          (e) => e.organizationId !== null && ownedOrgIds.includes(e.organizationId),
+        );
+      }
+
+      if (filters.before !== undefined) {
+        results = results.filter((e) => e.createdAt < filters.before!);
+      }
+
+      results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+      return { status: "ok", events: results.slice(0, filters.limit) };
     },
   };
 }
@@ -570,5 +643,216 @@ describe("audit log — no event on guarded admin rejections", () => {
     );
 
     expect(events.length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Audit log readback — GET /api/admin/audit-events
+// ---------------------------------------------------------------------------
+
+const SEED_EVENTS: AdminAuditEventRecord[] = [
+  {
+    id: "evt-org-a-1",
+    actorAdminUserId: ACTOR_ID,
+    action: "org_update",
+    targetId: ORG_A,
+    organizationId: ORG_A,
+    metadata: null,
+    createdAt: new Date("2026-06-10T10:00:00.000Z"),
+  },
+  {
+    id: "evt-org-b-1",
+    actorAdminUserId: ACTOR_ID,
+    action: "org_update",
+    targetId: ORG_B,
+    organizationId: ORG_B,
+    metadata: null,
+    createdAt: new Date("2026-06-10T09:00:00.000Z"),
+  },
+  {
+    id: "evt-platform-1",
+    actorAdminUserId: ACTOR_ID,
+    action: "admin_create",
+    targetId: "00000000-0000-4000-8000-000000000b01",
+    organizationId: null,
+    metadata: null,
+    createdAt: new Date("2026-06-10T08:00:00.000Z"),
+  },
+  {
+    id: "evt-sensitive-1",
+    actorAdminUserId: ACTOR_ID,
+    action: "admin_password_reset",
+    targetId: "00000000-0000-4000-8000-000000000b02",
+    organizationId: null,
+    metadata: { password: "should-be-stripped", reason: "user request" } as Record<string, unknown>,
+    createdAt: new Date("2026-06-10T07:00:00.000Z"),
+  },
+];
+
+describe("audit log — readback route", () => {
+  test("super-admin can list recent audit events", async () => {
+    const service = createInMemoryAuditService(SEED_EVENTS);
+    const app = createSuperAdminApp(service);
+
+    const res = await app.handle(
+      new Request("http://localhost/api/admin/audit-events", {
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { events: unknown[] } };
+    expect(body.ok).toBe(true);
+    expect(Array.isArray(body.data.events)).toBe(true);
+    expect((body.data.events as unknown[]).length).toBe(SEED_EVENTS.length);
+  });
+
+  test("non-super-admin without org-owner membership is forbidden", async () => {
+    const service = createInMemoryAuditService(SEED_EVENTS);
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService([], { isSuperAdmin: false }),
+      auditLogService: service,
+      checkDatabase: async () => true,
+    });
+
+    const res = await app.handle(
+      new Request("http://localhost/api/admin/audit-events", {
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  test("venue-only admin without org-owner role is forbidden", async () => {
+    const service = createInMemoryAuditService(SEED_EVENTS);
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService(
+        [
+          {
+            organizationId: ORG_A,
+            venueId: "00000000-0000-4000-8000-000000000011",
+            role: "venue_staff",
+          },
+        ],
+        { isSuperAdmin: false },
+      ),
+      auditLogService: service,
+      checkDatabase: async () => true,
+    });
+
+    const res = await app.handle(
+      new Request("http://localhost/api/admin/audit-events", {
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  test("org-owner sees only events scoped to their organization", async () => {
+    const service = createInMemoryAuditService(SEED_EVENTS);
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService([orgOwnerMembership], { isSuperAdmin: false }),
+      auditLogService: service,
+      checkDatabase: async () => true,
+    });
+
+    const res = await app.handle(
+      new Request("http://localhost/api/admin/audit-events", {
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ok: boolean;
+      data: { events: Array<{ organizationId: string }> };
+    };
+    expect(body.ok).toBe(true);
+    const events = body.data.events;
+    expect(events.length > 0).toBe(true);
+    for (const event of events) {
+      expect(event.organizationId).toBe(ORG_A);
+    }
+  });
+
+  test("org-owner cannot query events for a foreign organization", async () => {
+    const service = createInMemoryAuditService(SEED_EVENTS);
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService([orgOwnerMembership], { isSuperAdmin: false }),
+      auditLogService: service,
+      checkDatabase: async () => true,
+    });
+
+    const res = await app.handle(
+      new Request(`http://localhost/api/admin/audit-events?organizationId=${ORG_B}`, {
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  test("limit=0 is rejected with 400", async () => {
+    const service = createInMemoryAuditService(SEED_EVENTS);
+    const app = createSuperAdminApp(service);
+
+    const res = await app.handle(
+      new Request("http://localhost/api/admin/audit-events?limit=0", {
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  test("limit exceeding 100 is rejected with 400", async () => {
+    const service = createInMemoryAuditService(SEED_EVENTS);
+    const app = createSuperAdminApp(service);
+
+    const res = await app.handle(
+      new Request("http://localhost/api/admin/audit-events?limit=101", {
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  test("password material in metadata is not exposed", async () => {
+    const service = createInMemoryAuditService(SEED_EVENTS);
+    const app = createSuperAdminApp(service);
+
+    const res = await app.handle(
+      new Request("http://localhost/api/admin/audit-events", {
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ok: boolean;
+      data: { events: Array<{ action: string; metadata: Record<string, unknown> | null }> };
+    };
+    const sensitiveEvent = body.data.events.find((e) => e.action === "admin_password_reset");
+    expect(sensitiveEvent !== undefined).toBe(true);
+    const meta = sensitiveEvent?.metadata as Record<string, unknown> | null | undefined;
+    expect(meta !== null && meta !== undefined).toBe(true);
+    expect("password" in (meta ?? {})).toBe(false);
+    expect(meta?.reason).toBe("user request");
+  });
+
+  test("unauthenticated request is rejected with 401", async () => {
+    const service = createInMemoryAuditService(SEED_EVENTS);
+    const app = createSuperAdminApp(service);
+
+    const res = await app.handle(new Request("http://localhost/api/admin/audit-events"));
+
+    expect(res.status).toBe(401);
   });
 });

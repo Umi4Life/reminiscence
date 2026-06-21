@@ -251,6 +251,42 @@ export const EventsQuery = t.Object({
   ),
 });
 
+export const AdminAuditActionSchema = t.Union([
+  t.Literal("org_create"),
+  t.Literal("org_update"),
+  t.Literal("org_delete"),
+  t.Literal("admin_create"),
+  t.Literal("admin_update"),
+  t.Literal("admin_password_reset"),
+  t.Literal("membership_assign"),
+  t.Literal("membership_revoke"),
+]);
+
+export const AuditEventsQuery = t.Object({
+  action: t.Optional(AdminAuditActionSchema),
+  organizationId: t.Optional(t.String({ pattern: UuidPattern })),
+  before: t.Optional(
+    t.String({ description: "ISO 8601 datetime; return events older than this." }),
+  ),
+  limit: t.Optional(
+    t.Numeric({
+      minimum: 1,
+      maximum: 100,
+      description: "Maximum events to return (1–100, default 20).",
+    }),
+  ),
+});
+
+export const AdminAuditEventItem = t.Object({
+  id: t.String(),
+  actorAdminUserId: t.String(),
+  action: AdminAuditActionSchema,
+  targetId: t.String(),
+  organizationId: t.Nullable(t.String()),
+  metadata: t.Nullable(t.Unknown()),
+  createdAt: t.Date(),
+});
+
 // ---------------------------------------------------------------------------
 // Response data shapes (mirror the service return types exactly)
 // ---------------------------------------------------------------------------

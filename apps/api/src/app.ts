@@ -48,6 +48,7 @@ import { adminOrganizationsRoutes } from "./routes/admin-organizations";
 import { adminVenuesRoutes } from "./routes/admin-venues";
 import { adminMembershipsRoutes } from "./routes/admin-memberships";
 import { adminUsersRoutes } from "./routes/admin-users";
+import { adminAuditLogRoutes } from "./routes/admin-audit-log";
 import { publicAccessRoutes } from "./routes/public-access";
 import { publicBoardsRoutes } from "./routes/public-boards";
 import { qrRoutes } from "./routes/qr";
@@ -218,6 +219,7 @@ export function createApp(deps: AppDeps = {}) {
       }),
     )
     .use(adminUsersRoutes(adminRouteDeps))
+    .use(adminAuditLogRoutes({ authService: adminAuthService, auditLogService }))
     .use(publicAccessRoutes({ config, publicSessionService, rateLimiter }))
     .use(publicBoardsRoutes({ config, publicBoardReadService, queueMutationService, rateLimiter }))
     .use(

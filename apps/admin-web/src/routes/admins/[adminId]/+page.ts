@@ -41,11 +41,11 @@ export const load: PageLoad = async ({ fetch, params, parent }) => {
     } catch {
       // venues stays empty
     }
-  } else if (session?.memberships.some((m) => m.role === "org_owner")) {
-    const ownedOrgIds = session.memberships
-      .filter((m) => m.role === "org_owner")
-      .map((m) => m.organizationId);
-
+  } else if (
+    session?.memberships.some((m) => m.role === "org_owner" || m.role === "venue_manager")
+  ) {
+    // Org-owners and venue-managers: the admin/org/venue endpoints are already
+    // RBAC-scoped server-side, so no client-side filtering is needed.
     try {
       const result = await listAdmins(fetch);
       admin = result.admins.find((a) => a.id === params.adminId) ?? null;
@@ -54,15 +54,13 @@ export const load: PageLoad = async ({ fetch, params, parent }) => {
     }
 
     try {
-      const orgsResult = await listOrganizations(fetch);
-      organizations = orgsResult.organizations.filter((o) => ownedOrgIds.includes(o.id));
+      organizations = (await listOrganizations(fetch)).organizations;
     } catch {
       // orgs stays empty
     }
 
     try {
-      const venuesResult = await listVenues(fetch);
-      venues = venuesResult.venues.filter((v) => ownedOrgIds.includes(v.organizationId));
+      venues = (await listVenues(fetch)).venues;
     } catch {
       // venues stays empty
     }

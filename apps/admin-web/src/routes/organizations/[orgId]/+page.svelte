@@ -1,18 +1,33 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { updateOrganization, deleteOrganization, type OrganizationSummary } from "$lib/api";
+  import { untrack } from "svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
   const slugPattern = /^[a-z0-9._~-]+$/;
 
-  let organization = $state<OrganizationSummary | null>(data.organization);
+  let organization = $state<OrganizationSummary | null>(untrack(() => data.organization));
 
-  let editName = $state(data.organization?.name ?? "");
-  let editSlug = $state(data.organization?.slug ?? "");
+  let editName = $state(untrack(() => data.organization?.name ?? ""));
+  let editSlug = $state(untrack(() => data.organization?.slug ?? ""));
   let editError = $state<string | null>(null);
   let editBusy = $state(false);
+
+  // Re-seed when navigating to a *different* org (component reused across params).
+  let seededOrgId = untrack(() => data.organization?.id);
+  $effect(() => {
+    const id = data.organization?.id;
+    if (id === seededOrgId) return;
+    seededOrgId = id;
+    untrack(() => {
+      organization = data.organization;
+      editName = data.organization?.name ?? "";
+      editSlug = data.organization?.slug ?? "";
+      editError = null;
+    });
+  });
 
   let deleteBusy = $state(false);
   let deleteError = $state<string | null>(null);

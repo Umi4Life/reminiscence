@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { createVenue } from "$lib/api";
   import type { PageData } from "./$types";
 
@@ -10,7 +10,9 @@
   const timezoneOptions =
     typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
 
-  let organizationId = $state(data.organizations.length === 1 ? data.organizations[0].id : "");
+  let organizationId = $state(
+    untrack(() => (data.organizations.length === 1 ? data.organizations[0].id : "")),
+  );
   let name = $state("");
   let slug = $state("");
   let timezone = $state("");
@@ -156,7 +158,7 @@
             />
             <datalist id="timezone-options">
               {#each timezoneOptions as zone}
-                <option value={zone} />
+                <option value={zone}></option>
               {/each}
             </datalist>
           </label>

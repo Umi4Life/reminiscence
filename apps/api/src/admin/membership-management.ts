@@ -39,14 +39,19 @@ export type RevokeMembershipResult =
   | { status: "revoked" }
   | { status: "not_found" }
   | { status: "forbidden" }
-  | { status: "last_owner" };
+  | { status: "last_owner" }
+  | { status: "self_revoke" };
 
 export interface MembershipManagementService {
   assignMembership(
     rbac: AdminRbacContext,
     input: AssignMembershipInput,
   ): Promise<AssignMembershipResult>;
-  revokeMembership(rbac: AdminRbacContext, membershipId: string): Promise<RevokeMembershipResult>;
+  revokeMembership(
+    rbac: AdminRbacContext,
+    membershipId: string,
+    actorAdminUserId: string,
+  ): Promise<RevokeMembershipResult>;
 }
 
 function toMembershipDetail(m: AdminMembership): MembershipDetail {
@@ -60,13 +65,24 @@ function toMembershipDetail(m: AdminMembership): MembershipDetail {
   };
 }
 
-function isUniqueConstraintError(err: unknown): boolean {
-  return (
-    err != null &&
-    typeof err === "object" &&
-    "code" in err &&
-    (err as { code: unknown }).code === "23505"
-  );
+// Postgres unique-violation SQLSTATE.
+const UNIQUE_VIOLATION = "23505";
+
+/**
+ * Detects a Postgres unique-constraint violation. drizzle-orm wraps the driver
+ * error in a `DrizzleQueryError`, so the original `code` lives on `.cause` (and
+ * could be nested further). Walk the cause chain rather than checking only the
+ * top-level error. Exported for unit testing.
+ */
+export function isUniqueConstraintError(err: unknown): boolean {
+  let current: unknown = err;
+  for (let depth = 0; current != null && typeof current === "object" && depth < 10; depth++) {
+    if ("code" in current && (current as { code: unknown }).code === UNIQUE_VIOLATION) {
+      return true;
+    }
+    current = "cause" in current ? (current as { cause: unknown }).cause : undefined;
+  }
+  return false;
 }
 
 export function createDbMembershipManagementService(db: Database): MembershipManagementService {
@@ -125,7 +141,7 @@ export function createDbMembershipManagementService(db: Database): MembershipMan
       }
     },
 
-    async revokeMembership(rbac, membershipId): Promise<RevokeMembershipResult> {
+    async revokeMembership(rbac, membershipId, actorAdminUserId): Promise<RevokeMembershipResult> {
       const [membership] = await db
         .select()
         .from(adminMemberships)
@@ -133,6 +149,12 @@ export function createDbMembershipManagementService(db: Database): MembershipMan
         .limit(1);
 
       if (!membership) return { status: "not_found" };
+
+      // Foolproof self-lockout guard: an admin can never revoke their own
+      // membership (which could strip away their own access).
+      if (membership.adminUserId === actorAdminUserId) {
+        return { status: "self_revoke" };
+      }
 
       // Return not_found rather than forbidden to avoid leaking existence to
       // callers who lack read access to the org.

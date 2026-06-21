@@ -108,6 +108,7 @@ export function adminMembershipsRoutes(deps: AdminMembershipsRouteDeps) {
           const result = await deps.membershipManagementService.revokeMembership(
             toAdminRbacContext(session),
             params.id,
+            session.admin.id,
           );
 
           if (result.status === "not_found") throw notFoundError();
@@ -116,6 +117,9 @@ export function adminMembershipsRoutes(deps: AdminMembershipsRouteDeps) {
             throw conflictError(
               "Cannot remove the last org_owner of an organization. Assign another owner first.",
             );
+          }
+          if (result.status === "self_revoke") {
+            throw validationError("You cannot revoke your own membership.");
           }
 
           await deps.auditLogService?.record({

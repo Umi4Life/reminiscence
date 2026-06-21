@@ -7,6 +7,7 @@ import type {
   MembershipManagementService,
   RevokeMembershipResult,
 } from "../src/admin/membership-management";
+import { isUniqueConstraintError } from "../src/admin/membership-management";
 import { canManageOrganization, canManagePlatform, type AdminRbacContext } from "../src/auth/rbac";
 import { createTestApp } from "../src/app";
 import {
@@ -91,11 +92,16 @@ function createFakeMembershipService(store: FakeMembershipStore): MembershipMana
     async revokeMembership(
       rbac: AdminRbacContext,
       membershipId: string,
+      actorAdminUserId: string,
     ): Promise<RevokeMembershipResult> {
       const index = store.memberships.findIndex((m) => m.id === membershipId);
       if (index === -1) return { status: "not_found" };
 
       const membership = store.memberships[index]!;
+
+      if (membership.adminUserId === actorAdminUserId) {
+        return { status: "self_revoke" };
+      }
 
       if (!canManagePlatform(rbac) && !canManageOrganization(rbac, membership.organizationId)) {
         return { status: "not_found" };
@@ -469,6 +475,29 @@ describe("DELETE /api/admin/memberships/:id", () => {
 
     expect(response.status).toBe(401);
   });
+
+  test("cannot revoke your own membership — returns 400 even for super-admin", async () => {
+    // Session admin id is "admin-1" (see createFakeAuthService).
+    const SELF_MEMBERSHIP = "00000000-0000-4000-8000-000000000903";
+    const store = makeStore({
+      memberships: [makeMembership(SELF_MEMBERSHIP, "admin-1", ORG_A, null, "org_owner")],
+      ownerCounts: new Map([[ORG_A, 2]]),
+    });
+    const app = createSuperAdminApp(store);
+
+    const response = await app.handle(
+      new Request(`http://localhost/api/admin/memberships/${SELF_MEMBERSHIP}`, {
+        method: "DELETE",
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const json = (await response.json()) as { ok: false; error: { message: string } };
+    expect(json.error.message.includes("your own membership")).toBe(true);
+    // The membership must still be present — not revoked.
+    expect(store.memberships.some((m) => m.id === SELF_MEMBERSHIP)).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -505,5 +534,44 @@ describe("membership route security guardrails", () => {
       // isSuperAdmin is never written.
       expect(response.status === 400 || response.status === 200).toBe(true);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isUniqueConstraintError — must unwrap drizzle's DrizzleQueryError so a
+// duplicate assignment maps to a 409 conflict instead of an unhandled 500.
+// ---------------------------------------------------------------------------
+
+describe("isUniqueConstraintError", () => {
+  test("detects a bare Postgres 23505 error", () => {
+    expect(isUniqueConstraintError({ code: "23505" })).toBe(true);
+  });
+
+  test("detects 23505 wrapped one level deep (the drizzle DrizzleQueryError case)", () => {
+    // Mirrors the real shape: DrizzleQueryError { cause: PostgresError { code: "23505" } }
+    const wrapped = { name: "DrizzleQueryError", cause: { code: "23505" } };
+    expect(isUniqueConstraintError(wrapped)).toBe(true);
+  });
+
+  test("detects 23505 nested several causes deep", () => {
+    const deeplyWrapped = { cause: { cause: { cause: { code: "23505" } } } };
+    expect(isUniqueConstraintError(deeplyWrapped)).toBe(true);
+  });
+
+  test("returns false for a different SQLSTATE", () => {
+    expect(isUniqueConstraintError({ cause: { code: "23502" } })).toBe(false);
+  });
+
+  test("returns false for non-error values", () => {
+    expect(isUniqueConstraintError(null)).toBe(false);
+    expect(isUniqueConstraintError(undefined)).toBe(false);
+    expect(isUniqueConstraintError("boom")).toBe(false);
+    expect(isUniqueConstraintError({})).toBe(false);
+  });
+
+  test("does not loop forever on a self-referential cause chain", () => {
+    const cyclic: { cause?: unknown; code?: string } = {};
+    cyclic.cause = cyclic;
+    expect(isUniqueConstraintError(cyclic)).toBe(false);
   });
 });

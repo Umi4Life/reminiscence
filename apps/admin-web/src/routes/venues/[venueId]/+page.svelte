@@ -1,20 +1,39 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { updateVenue, deleteVenue } from "$lib/api";
+  import { untrack } from "svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
   const slugPattern = /^[a-z0-9._~-]+$/;
 
-  let name = $state(data.venue?.name ?? "");
-  let slug = $state(data.venue?.slug ?? "");
-  let timezone = $state(data.venue?.timezone ?? "");
-  let address = $state(data.venue?.address ?? "");
+  let name = $state(untrack(() => data.venue?.name ?? ""));
+  let slug = $state(untrack(() => data.venue?.slug ?? ""));
+  let timezone = $state(untrack(() => data.venue?.timezone ?? ""));
+  let address = $state(untrack(() => data.venue?.address ?? ""));
   let error = $state<string | null>(null);
   let success = $state<string | null>(null);
   let busy = $state(false);
   let deleting = $state(false);
+
+  // SvelteKit reuses this component across sibling params, so re-seed the form
+  // when navigating to a *different* venue. Guarded on id so same-venue data
+  // refreshes don't wipe in-progress edits.
+  let seededVenueId = untrack(() => data.venue?.id);
+  $effect(() => {
+    const id = data.venue?.id;
+    if (id === seededVenueId) return;
+    seededVenueId = id;
+    untrack(() => {
+      name = data.venue?.name ?? "";
+      slug = data.venue?.slug ?? "";
+      timezone = data.venue?.timezone ?? "";
+      address = data.venue?.address ?? "";
+      error = null;
+      success = null;
+    });
+  });
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();

@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { getPublicBoardEvents, type BoardSummary, type PublicBoardEvent } from "$lib/api";
   import AdminBoardControls from "$lib/components/AdminBoardControls.svelte";
+  import AdminBoardDangerZone from "$lib/components/AdminBoardDangerZone.svelte";
   import AdminBoardEditForm from "$lib/components/AdminBoardEditForm.svelte";
   import AdminEventHistory from "$lib/components/AdminEventHistory.svelte";
   import type { PageData } from "./$types";
@@ -53,6 +54,7 @@
       <AdminBoardEditForm {board} venueName={data.venueName} {onBoardUpdated} />
       <AdminBoardControls {board} {onBoardUpdated} onRefreshEvents={refreshEvents} />
       <AdminEventHistory {events} />
+      <AdminBoardDangerZone {board} />
     </main>
   </div>
 {/if}

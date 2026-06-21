@@ -11,7 +11,8 @@ export const load: PageLoad = async ({ fetch, parent }) => {
   let admins: AdminUserSummary[] = [];
 
   const canManage =
-    session?.admin.isSuperAdmin || session?.memberships.some((m) => m.role === "org_owner");
+    session?.admin.isSuperAdmin ||
+    session?.memberships.some((m) => m.role === "org_owner" || m.role === "venue_manager");
 
   if (canManage) {
     try {

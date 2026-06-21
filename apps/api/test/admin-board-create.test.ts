@@ -72,7 +72,7 @@ describe("admin board create route", () => {
     expect(json.data.board.slug).toBe("new-board");
     expect(json.data.board.publicSlug).toBe("new-board-public");
     expect(json.data.board.name).toBe("New Board");
-    expect(json.data.board.status).toBe("closed");
+    expect(json.data.board.status).toBe("open");
     expect(json.data.board.publicViewPolicy).toBe("open");
     expect(json.data.board.publicAddPolicy).toBe("access_code_required");
     expect(json.data.board.publicRemovePolicy).toBe("access_code_required");

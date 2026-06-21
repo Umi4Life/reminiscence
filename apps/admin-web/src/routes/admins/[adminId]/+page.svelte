@@ -1,14 +1,15 @@
 <script lang="ts">
   import { updateAdmin, resetAdminPassword, assignMembership, revokeMembership, getAdmin, listAdmins, type AdminUserSummary, type OrganizationSummary, type VenueSummary } from "$lib/api";
+  import { untrack } from "svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
   // Admin state — update when mutations succeed
-  let admin = $state<AdminUserSummary | null>(data.admin);
+  let admin = $state<AdminUserSummary | null>(untrack(() => data.admin));
 
   // Edit display name
-  let displayName = $state(data.admin?.displayName ?? "");
+  let displayName = $state(untrack(() => data.admin?.displayName ?? ""));
   let editError = $state<string | null>(null);
   let editSuccess = $state<string | null>(null);
   let editBusy = $state(false);
@@ -30,10 +31,35 @@
   let assignError = $state<string | null>(null);
   let assignBusy = $state(false);
 
+  // SvelteKit reuses this component across sibling params; re-seed when
+  // navigating to a *different* admin (guarded on id so same-admin refreshes
+  // don't clobber local mutation results or in-progress edits).
+  let seededAdminId = untrack(() => data.admin?.id);
+  $effect(() => {
+    const id = data.admin?.id;
+    if (id === seededAdminId) return;
+    seededAdminId = id;
+    untrack(() => {
+      admin = data.admin;
+      displayName = data.admin?.displayName ?? "";
+      editError = null;
+      editSuccess = null;
+      resetError = null;
+      resetSuccess = null;
+    });
+  });
+
   let canManageAdmins = $derived(
     data.session?.admin.isSuperAdmin ||
-      (data.session?.memberships.some((m) => m.role === "org_owner") ?? false),
+      (data.session?.memberships.some(
+        (m) => m.role === "org_owner" || m.role === "venue_manager",
+      ) ??
+        false),
   );
+
+  // Self-lockout guard: you cannot disable or revoke your own account. The
+  // server enforces this too; this just keeps the dangerous controls out of reach.
+  let isSelf = $derived(!!admin && data.session?.admin.id === admin.id);
 
   let venuesForOrg = $derived(
     assignOrgId ? data.venues.filter((v: VenueSummary) => v.organizationId === assignOrgId) : []
@@ -71,7 +97,7 @@
   }
 
   async function handleToggleStatus() {
-    if (statusBusy || !admin || admin.isSuperAdmin) return;
+    if (statusBusy || !admin || admin.isSuperAdmin || isSelf) return;
     statusError = null;
     statusBusy = true;
     try {
@@ -130,7 +156,7 @@
   }
 
   async function handleRevokeMembership(membershipId: string) {
-    if (!admin) return;
+    if (!admin || isSelf) return;
     if (!confirm("Revoke this membership?")) return;
     try {
       await revokeMembership(admin.id, membershipId);
@@ -205,17 +231,21 @@
           {#if statusError}
             <p class="error" role="alert">{statusError}</p>
           {/if}
-          <button
-            class="btn-danger"
-            onclick={handleToggleStatus}
-            disabled={statusBusy}
-          >
-            {statusBusy
-              ? "Updating…"
-              : admin.status === "active"
-                ? "Disable this admin"
-                : "Enable this admin"}
-          </button>
+          {#if isSelf}
+            <p class="self-note">You cannot disable your own account.</p>
+          {:else}
+            <button
+              class="btn-danger"
+              onclick={handleToggleStatus}
+              disabled={statusBusy}
+            >
+              {statusBusy
+                ? "Updating…"
+                : admin.status === "active"
+                  ? "Disable this admin"
+                  : "Enable this admin"}
+            </button>
+          {/if}
         </section>
       {:else}
         <section class="card section">
@@ -256,6 +286,9 @@
         {#if admin.memberships.length === 0}
           <p class="empty-desc">No memberships assigned.</p>
         {:else}
+          {#if isSelf}
+            <p class="self-note">You cannot revoke your own membership.</p>
+          {/if}
           <div class="membership-list">
             {#each admin.memberships as m (m.id)}
               <div class="membership-row">
@@ -266,9 +299,11 @@
                   {/if}
                   <span class="role-badge">{m.role}</span>
                 </span>
-                <button class="btn-revoke" onclick={() => handleRevokeMembership(m.id)}>
-                  Revoke
-                </button>
+                {#if !isSelf}
+                  <button class="btn-revoke" onclick={() => handleRevokeMembership(m.id)}>
+                    Revoke
+                  </button>
+                {/if}
               </div>
             {/each}
           </div>
@@ -403,6 +438,7 @@
   }
   .btn-revoke:hover { background: var(--color-error-bg-soft); }
   .empty-desc { font-size: 0.9375rem; color: var(--color-text-muted); line-height: 1.6; }
+  .self-note { font-size: 0.875rem; color: var(--color-text-muted); font-style: italic; margin-bottom: 0.5rem; }
   .cancel-link { font-size: 0.875rem; color: var(--color-text-muted); text-decoration: none; }
   .cancel-link:hover { color: var(--color-text); text-decoration: underline; }
   .error {

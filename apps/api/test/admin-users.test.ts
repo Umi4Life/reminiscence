@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
 import { createTestApp } from "../src/app";
-import { createFakeAuthService, orgOwnerMembership, ORG_A, sessionCookie } from "./admin-fixtures";
+import {
+  createFakeAuthService,
+  orgOwnerMembership,
+  venueManagerMembership,
+  venueStaffMembership,
+  ORG_A,
+  ORG_B,
+  VENUE_A1,
+  VENUE_A2,
+  sessionCookie,
+} from "./admin-fixtures";
 import { testAppConfig } from "./test-config";
 import type { AdminManagementService } from "../src/admin/admin-management";
 import type { AdminUserSummary } from "../src/admin/admin-management";
@@ -113,13 +123,23 @@ function createFakeAdminManagementService(
       if (store.some((a) => a.email === input.email)) {
         return { status: "conflict" };
       }
+      const memberships = input.membership
+        ? [
+            {
+              id: crypto.randomUUID(),
+              organizationId: input.membership.organizationId,
+              venueId: input.membership.venueId,
+              role: input.membership.role,
+            },
+          ]
+        : [];
       const created: AdminUserSummary = {
         id: crypto.randomUUID(),
         email: input.email,
         displayName: input.displayName,
         status: input.status,
         isSuperAdmin: false,
-        memberships: [],
+        memberships,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -127,7 +147,16 @@ function createFakeAdminManagementService(
       return { status: "created", admin: created };
     },
 
-    async updateAdmin(rbac: AdminRbacContext, adminUserId: string, patch: PatchAdminInput) {
+    async updateAdmin(
+      rbac: AdminRbacContext,
+      adminUserId: string,
+      patch: PatchAdminInput,
+      actorAdminUserId: string,
+    ) {
+      if (patch.status === "disabled" && adminUserId === actorAdminUserId) {
+        return { status: "self_disable" };
+      }
+
       const index = store.findIndex((a) => a.id === adminUserId);
       if (index === -1) return { status: "not_found" };
 
@@ -207,6 +236,24 @@ function createOrgOwnerApp(adminManagementService: AdminManagementService) {
   return createTestApp({
     config: testAppConfig,
     adminAuthService: createFakeAuthService([orgOwnerMembership]),
+    adminManagementService,
+    checkDatabase: async () => true,
+  });
+}
+
+function createVenueManagerApp(adminManagementService: AdminManagementService) {
+  return createTestApp({
+    config: testAppConfig,
+    adminAuthService: createFakeAuthService([venueManagerMembership]),
+    adminManagementService,
+    checkDatabase: async () => true,
+  });
+}
+
+function createVenueStaffApp(adminManagementService: AdminManagementService) {
+  return createTestApp({
+    config: testAppConfig,
+    adminAuthService: createFakeAuthService([venueStaffMembership]),
     adminManagementService,
     checkDatabase: async () => true,
   });
@@ -346,7 +393,7 @@ describe("admin users routes", () => {
       expect(json.error.code).toBe("validation_error");
     });
 
-    test("org-owner cannot create admin user — gets 403", async () => {
+    test("org-owner cannot create a bare (membership-less) admin — gets 403", async () => {
       const service = createFakeAdminManagementService();
       const app = createOrgOwnerApp(service);
 
@@ -363,6 +410,172 @@ describe("admin users routes", () => {
       );
 
       expect(response.status).toBe(403);
+    });
+
+    // --- Chain of command: create admin WITH an initial membership ----------
+
+    function createBody(
+      role: "org_owner" | "venue_manager" | "venue_staff",
+      organizationId: string,
+      venueId: string | null,
+      email = "created@example.com",
+    ) {
+      return {
+        email,
+        displayName: "Created Admin",
+        password: "password123",
+        membership: { organizationId, venueId, role },
+      };
+    }
+
+    test("org-owner can create an org_owner in their own org", async () => {
+      const service = createFakeAdminManagementService();
+      const app = createOrgOwnerApp(service);
+
+      const response = await app.handle(
+        new Request("http://localhost/api/admin/admins", {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify(createBody("org_owner", ORG_A, null)),
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      const json = (await response.json()) as {
+        ok: true;
+        data: { admin: { memberships: Array<{ role: string; organizationId: string }> } };
+      };
+      expect(json.data.admin.memberships[0]?.role).toBe("org_owner");
+      expect(json.data.admin.memberships[0]?.organizationId).toBe(ORG_A);
+    });
+
+    test("org-owner can create venue_manager and venue_staff in their org", async () => {
+      for (const role of ["venue_manager", "venue_staff"] as const) {
+        const service = createFakeAdminManagementService();
+        const app = createOrgOwnerApp(service);
+
+        const response = await app.handle(
+          new Request("http://localhost/api/admin/admins", {
+            method: "POST",
+            headers: { "content-type": "application/json", cookie: sessionCookie },
+            body: JSON.stringify(createBody(role, ORG_A, VENUE_A1, `${role}@example.com`)),
+          }),
+        );
+
+        expect(response.status).toBe(200);
+        const json = (await response.json()) as {
+          ok: true;
+          data: { admin: { memberships: Array<{ role: string }> } };
+        };
+        expect(json.data.admin.memberships[0]?.role).toBe(role);
+      }
+    });
+
+    test("org-owner cannot create an admin in a different org — gets 403", async () => {
+      const service = createFakeAdminManagementService();
+      const app = createOrgOwnerApp(service);
+
+      const response = await app.handle(
+        new Request("http://localhost/api/admin/admins", {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify(createBody("org_owner", ORG_B, null)),
+        }),
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    test("venue-manager can create venue_manager and venue_staff in their own venue", async () => {
+      for (const role of ["venue_manager", "venue_staff"] as const) {
+        const service = createFakeAdminManagementService();
+        const app = createVenueManagerApp(service);
+
+        const response = await app.handle(
+          new Request("http://localhost/api/admin/admins", {
+            method: "POST",
+            headers: { "content-type": "application/json", cookie: sessionCookie },
+            body: JSON.stringify(createBody(role, ORG_A, VENUE_A1, `mgr-${role}@example.com`)),
+          }),
+        );
+
+        expect(response.status).toBe(200);
+      }
+    });
+
+    test("venue-manager cannot create an org_owner — gets 403", async () => {
+      const service = createFakeAdminManagementService();
+      const app = createVenueManagerApp(service);
+
+      const response = await app.handle(
+        new Request("http://localhost/api/admin/admins", {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify(createBody("org_owner", ORG_A, null)),
+        }),
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    test("venue-manager cannot create an admin in a venue they do not manage — gets 403", async () => {
+      const service = createFakeAdminManagementService();
+      const app = createVenueManagerApp(service);
+
+      const response = await app.handle(
+        new Request("http://localhost/api/admin/admins", {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify(createBody("venue_staff", ORG_A, VENUE_A2)),
+        }),
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    test("venue-staff cannot create any admin — gets 403", async () => {
+      const service = createFakeAdminManagementService();
+      const app = createVenueStaffApp(service);
+
+      const response = await app.handle(
+        new Request("http://localhost/api/admin/admins", {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify(createBody("venue_staff", ORG_A, VENUE_A1)),
+        }),
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    test("org_owner role with a venueId is rejected — 400", async () => {
+      const service = createFakeAdminManagementService();
+      const app = createOrgOwnerApp(service);
+
+      const response = await app.handle(
+        new Request("http://localhost/api/admin/admins", {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify(createBody("org_owner", ORG_A, VENUE_A1)),
+        }),
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    test("venue role with null venueId is rejected — 400", async () => {
+      const service = createFakeAdminManagementService();
+      const app = createOrgOwnerApp(service);
+
+      const response = await app.handle(
+        new Request("http://localhost/api/admin/admins", {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify(createBody("venue_staff", ORG_A, null)),
+        }),
+      );
+
+      expect(response.status).toBe(400);
     });
 
     test("non-super-admin cannot create admin user — gets 403", async () => {
@@ -519,6 +732,49 @@ describe("admin users routes", () => {
       expect(response.status).toBe(400);
       const json = (await response.json()) as { ok: false; error: { code: string } };
       expect(json.error.code).toBe("validation_error");
+    });
+
+    test("cannot disable your own account — returns 400 even for super-admin", async () => {
+      // Session admin id is "admin-1" (see createFakeAuthService).
+      const service = createFakeAdminManagementService([
+        adminSummary("admin-1", "me@example.com", "Me", { isSuperAdmin: true }),
+        adminSummary(ADMIN_SUPER_2, "super2@example.com", "Super Admin 2", { isSuperAdmin: true }),
+      ]);
+      const app = createSuperAdminApp(service);
+
+      const response = await app.handle(
+        new Request(`http://localhost/api/admin/admins/admin-1`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify({ status: "disabled" }),
+        }),
+      );
+
+      expect(response.status).toBe(400);
+      const json = (await response.json()) as { ok: false; error: { message: string } };
+      expect(json.error.message.includes("your own account")).toBe(true);
+    });
+
+    test("can still edit your own display name (self-guard is disable-only)", async () => {
+      const service = createFakeAdminManagementService([
+        adminSummary("admin-1", "me@example.com", "Me", { isSuperAdmin: true }),
+      ]);
+      const app = createSuperAdminApp(service);
+
+      const response = await app.handle(
+        new Request(`http://localhost/api/admin/admins/admin-1`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify({ displayName: "My New Name" }),
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      const json = (await response.json()) as {
+        ok: true;
+        data: { admin: { displayName: string } };
+      };
+      expect(json.data.admin.displayName).toBe("My New Name");
     });
 
     test("returns 404 for unknown admin id", async () => {

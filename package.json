@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "dev:api": "bun --env-file=.env --watch apps/api/src/index.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

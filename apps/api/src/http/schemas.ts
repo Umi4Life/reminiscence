@@ -198,6 +198,18 @@ export const CreateAdminBody = t.Object({
     minLength: PASSWORD_MIN_LENGTH,
     description: `Temporary password (minimum ${PASSWORD_MIN_LENGTH} characters).`,
   }),
+  // Optional initial membership granted atomically with the user. Required for
+  // non-super-admin creators (the role/scope they may grant is limited by the
+  // chain of command). Omit for a bare platform admin (super-admin only).
+  membership: t.Optional(
+    t.Object({
+      organizationId: t.String({ description: "Organization for the initial membership." }),
+      venueId: t.Nullable(
+        t.String({ description: "Venue for venue-level roles; null for org_owner." }),
+      ),
+      role: AdminMembershipRole,
+    }),
+  ),
 });
 
 export const PatchAdminBody = t.Object({

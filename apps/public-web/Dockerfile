@@ -34,6 +34,7 @@ COPY --from=builder /app/apps/public-web/build ./build
 ENV PORT=3000
 EXPOSE 3000
 
-# PUBLIC_API_BASE_URL defaults to http://localhost:3002/api in public-web
-# Set PUBLIC_API_BASE_URL and ORIGIN at runtime for production use
+# PUBLIC_API_BASE_URL defaults to "/api" (same-origin) in public-web.
+# A standalone container has no proxy, so set PUBLIC_API_BASE_URL (and ORIGIN)
+# at runtime to the API's reachable URL — compose files already do this.
 CMD ["node", "build/index.js"]

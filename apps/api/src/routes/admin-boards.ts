@@ -104,7 +104,7 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
           publicSlug: requireValidSlug(body.publicSlug, "Public slug"),
           name: trimmedName,
           description: body.description == null ? null : body.description.trim() || null,
-          status: "closed",
+          status: "open",
           publicViewPolicy: body.publicViewPolicy ?? "open",
           publicAddPolicy: body.publicAddPolicy ?? "access_code_required",
           publicRemovePolicy: body.publicRemovePolicy ?? "access_code_required",

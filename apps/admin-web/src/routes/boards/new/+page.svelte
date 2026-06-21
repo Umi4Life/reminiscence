@@ -1,13 +1,14 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { createBoard } from "$lib/api";
+  import { untrack } from "svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
   const slugPattern = /^[a-z0-9._~-]+$/;
 
-  let venueId = $state(data.venues.length === 1 ? data.venues[0].id : "");
+  let venueId = $state(untrack(() => (data.venues.length === 1 ? data.venues[0].id : "")));
   let name = $state("");
   let slug = $state("");
   let publicSlug = $state("");

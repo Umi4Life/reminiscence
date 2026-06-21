@@ -5,7 +5,10 @@
 
   let canManage = $derived(
     data.session?.admin.isSuperAdmin ||
-      (data.session?.memberships.some((m) => m.role === "org_owner") ?? false),
+      (data.session?.memberships.some(
+        (m) => m.role === "org_owner" || m.role === "venue_manager",
+      ) ??
+        false),
   );
 </script>
 
@@ -16,7 +19,7 @@
         <a href="/" class="back-link">← Dashboard</a>
         <h1 class="page-title">Admins</h1>
       </div>
-      {#if data.session?.admin.isSuperAdmin}
+      {#if canManage}
         <a href="/admins/new" class="btn-primary">New admin</a>
       {/if}
     </div>

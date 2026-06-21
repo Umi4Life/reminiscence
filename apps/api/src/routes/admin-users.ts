@@ -8,7 +8,7 @@ import type {
 import type { AdminAuditLogService } from "../admin/admin-audit-log";
 import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
-import { toAdminRbacContext, assertSuperAdmin } from "../auth/rbac";
+import { toAdminRbacContext, assertSuperAdmin, canCreateAdminWithMembership } from "../auth/rbac";
 import { forbiddenError, notFoundError, validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
 import { apiModels } from "../http/models";
@@ -85,7 +85,6 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
       async ({ request, body }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
         const rbac = toAdminRbacContext(session);
-        assertSuperAdmin(rbac);
 
         const email = body.email.trim().toLowerCase();
         if (email.length === 0) throw validationError("Email is required.");
@@ -93,23 +92,52 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
         const displayName = body.displayName.trim();
         if (displayName.length === 0) throw validationError("Display name is required.");
 
-        const input: CreateAdminInput = {
+        let membership: CreateAdminInput["membership"];
+        if (body.membership) {
+          const { organizationId, venueId, role } = body.membership;
+
+          // org_owner is org-level; venue roles must name a venue.
+          if (role === "org_owner" && venueId !== null) {
+            throw validationError("org_owner is an org-level role; venueId must be null.");
+          }
+          if ((role === "venue_manager" || role === "venue_staff") && venueId === null) {
+            throw validationError(`${role} requires a venueId.`);
+          }
+
+          // Chain of command: the caller may only grant a role within their scope.
+          if (!canCreateAdminWithMembership(rbac, { organizationId, venueId, role })) {
+            throw forbiddenError("You cannot create an admin with that role or scope.");
+          }
+
+          membership = { organizationId, venueId, role };
+        } else {
+          // A bare admin (no membership) is a platform-level user — super-admin only.
+          assertSuperAdmin(rbac);
+        }
+
+        const result = await deps.adminManagementService.createAdmin({
           email,
           displayName,
           password: body.password,
           status: "active",
-        };
-
-        const result = await deps.adminManagementService.createAdmin(input);
+          membership,
+        });
 
         if (result.status === "conflict") {
           throw validationError("An admin with this email already exists.");
+        }
+        if (result.status === "org_not_found") {
+          throw notFoundError("Organization not found.");
+        }
+        if (result.status === "venue_not_found") {
+          throw notFoundError("Venue not found or does not belong to the organization.");
         }
 
         await deps.auditLogService?.record({
           actorAdminUserId: session.admin.id,
           action: "admin_create",
           targetId: result.admin.id,
+          metadata: membership ? { role: membership.role } : null,
         });
 
         return apiSuccess({ admin: result.admin });
@@ -119,7 +147,11 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
         response: { 200: success(t.Object({ admin: AdminUserSummary })), ...adminUserErrors },
         detail: {
           summary: "Create admin user",
-          description: "Creates a new admin user with a temporary password. Requires super-admin.",
+          description:
+            "Creates a new admin user with a temporary password. Super-admin may create a bare " +
+            "admin (no membership). With an initial membership, the chain of command applies: " +
+            "org_owner can grant any role in their org; venue_manager can grant manager/staff in " +
+            "their own venue; venue_staff cannot create admins.",
           tags: [API_TAGS.adminUsers],
           security: [{ AdminSession: [] }],
         },
@@ -151,12 +183,16 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
           rbac,
           params.adminUserId,
           patch,
+          session.admin.id,
         );
 
         if (result.status === "not_found") throw notFoundError();
         if (result.status === "forbidden") throw forbiddenError("Cannot modify this admin.");
         if (result.status === "last_super_admin") {
           throw validationError("Cannot disable the last active super-admin.");
+        }
+        if (result.status === "self_disable") {
+          throw validationError("You cannot disable your own account.");
         }
 
         await deps.auditLogService?.record({

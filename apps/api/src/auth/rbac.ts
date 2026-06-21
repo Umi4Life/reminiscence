@@ -153,6 +153,50 @@ export function canAssignMembership(
   return membership?.role === "venue_manager";
 }
 
+/**
+ * Chain of command for CREATING an admin together with an initial membership:
+ *   org_owner   → may grant org_owner, venue_manager, venue_staff in their org
+ *   venue_manager → may grant venue_manager, venue_staff in their own venue
+ *   venue_staff → may not create admins at all
+ *
+ * This governs ONLY the create-admin flow. Membership reassignment continues to
+ * use `canAssignMembership`, which is intentionally stricter and left unchanged.
+ * Venue-belongs-to-org is validated against the DB in the service layer.
+ */
+export function canCreateAdminWithMembership(
+  context: AdminRbacContext,
+  assignment: MembershipAssignmentContext,
+): boolean {
+  if (context.isSuperAdmin) return true;
+
+  const { organizationId, venueId, role } = assignment;
+
+  // Org-owner: may grant any role within their own org. org_owner is org-level
+  // (venueId null); manager/staff are venue-level (venueId set).
+  if (hasOrgOwnerMembership(context.memberships, organizationId)) {
+    return role === "org_owner" ? venueId === null : venueId !== null;
+  }
+
+  // Venue-manager: may grant manager/staff in their OWN venue only — never org_owner.
+  if (role !== "venue_manager" && role !== "venue_staff") return false;
+  if (venueId === null) return false;
+  const membership = findVenueMembership(context.memberships, organizationId, venueId);
+  return membership?.role === "venue_manager";
+}
+
+/**
+ * Roles the context may grant when creating an admin, given a target scope.
+ * Used to drive the UI; the server still enforces `canCreateAdminWithMembership`.
+ * `venueId === null` asks "what org-level roles can I grant in this org?".
+ */
+export function grantableCreateRoles(
+  context: AdminRbacContext,
+  scope: { organizationId: string; venueId: string | null },
+): AdminMembershipRole[] {
+  const roles: AdminMembershipRole[] = ["org_owner", "venue_manager", "venue_staff"];
+  return roles.filter((role) => canCreateAdminWithMembership(context, { ...scope, role }));
+}
+
 export function canManagePlatform(context: AdminRbacContext): boolean {
   return context.isSuperAdmin === true;
 }

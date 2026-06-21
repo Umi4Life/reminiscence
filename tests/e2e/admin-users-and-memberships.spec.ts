@@ -54,40 +54,40 @@ test.describe("admin users and memberships", () => {
     await expect(page.getByRole("heading", { name: "Admins" })).toBeVisible();
   });
 
-  test("super-admin can create a new admin", async () => {
+  test("super-admin can create a new admin as an org-owner", async () => {
+    // Creation now grants an initial membership atomically (chain of command):
+    // pick the org_owner role + organisation scope on the create form.
     await page.goto("http://localhost:3001/admins/new");
     await page.locator('input[type="email"]').fill(NEW_ADMIN_EMAIL);
     await page.locator('input[type="text"]').fill(NEW_ADMIN_DISPLAY);
     await page.locator('input[type="password"]').fill(NEW_ADMIN_PASSWORD);
+    await page.getByRole("combobox").first().selectOption("org_owner");
+    await page.getByRole("combobox").nth(1).selectOption({ label: NEW_ADMIN_SCOPED_ORG });
     await page.getByRole("button", { name: "Create admin" }).click();
     await expect(page).toHaveURL(/\/admins\/[0-9a-f-]+$/);
     await expect(page.locator(".page-title")).toContainText(NEW_ADMIN_DISPLAY);
   });
 
-  test("super-admin can assign org-level membership", async () => {
-    // Already on the admin detail page after creation
-    await page.getByRole("combobox").nth(0).selectOption({ label: NEW_ADMIN_SCOPED_ORG });
-    await page.getByRole("combobox").nth(2).selectOption("org_owner");
-    await page.getByRole("button", { name: "Assign membership" }).click();
+  test("created admin shows the org_owner membership granted at creation", async () => {
+    // Already on the admin detail page after creation; the membership was created
+    // atomically with the user, so it appears without a separate assignment step.
     await expect(page.locator(".membership-list")).toBeVisible();
     await expect(page.locator(".membership-list")).toContainText(NEW_ADMIN_SCOPED_ORG);
   });
 
-  test("super-admin can create a second scoped admin", async () => {
+  test("super-admin can create a second scoped admin as venue_manager", async () => {
     await page.goto("http://localhost:3001/admins/new");
     await page.locator('input[type="email"]').fill(ORG_MEMBER_EMAIL);
     await page.locator('input[type="text"]').fill(ORG_MEMBER_DISPLAY);
     await page.locator('input[type="password"]').fill(ORG_MEMBER_PASSWORD);
+    // venue_manager in the org's seeded venue so they appear in the org-owner's list.
+    await page.getByRole("combobox").first().selectOption("venue_manager");
+    await page.getByRole("combobox").nth(1).selectOption({ label: NEW_ADMIN_SCOPED_VENUE });
     await page.getByRole("button", { name: "Create admin" }).click();
     await expect(page).toHaveURL(/\/admins\/[0-9a-f-]+$/);
     await expect(page.locator(".page-title")).toContainText(ORG_MEMBER_DISPLAY);
-    // Assign venue_manager in the org's seeded venue so they appear in the org-owner's list
-    await page.getByRole("combobox").nth(0).selectOption({ label: NEW_ADMIN_SCOPED_ORG });
-    await page.getByRole("combobox").nth(1).selectOption({ label: NEW_ADMIN_SCOPED_VENUE });
-    await page.getByRole("combobox").nth(2).selectOption("venue_manager");
-    await page.getByRole("button", { name: "Assign membership" }).click();
     await expect(page.locator(".membership-list")).toBeVisible();
-    await expect(page.locator(".membership-list")).toContainText(NEW_ADMIN_SCOPED_ORG);
+    await expect(page.locator(".membership-list")).toContainText(NEW_ADMIN_SCOPED_VENUE);
   });
 
   // --- Org-owner setup: log in once, reuse context for all org-owner tests ---
@@ -119,7 +119,7 @@ test.describe("admin users and memberships", () => {
     await expect(orgOwnerPage.getByRole("link", { name: "New venue" }).first()).toBeVisible();
   });
 
-  test("org-owner can list scoped admins without create button", async () => {
+  test("org-owner can list scoped admins and has a create button", async () => {
     // Navigate via the Manage link (SPA navigation keeps session warm)
     await orgOwnerPage.goto("http://localhost:3001/");
     await orgOwnerPage.getByTestId("admins-manage-link").click();
@@ -128,10 +128,8 @@ test.describe("admin users and memberships", () => {
     // Scoped list shows only admins in their org
     await expect(orgOwnerPage.getByText(NEW_ADMIN_DISPLAY)).toBeVisible();
     await expect(orgOwnerPage.getByText(ORG_MEMBER_DISPLAY)).toBeVisible();
-    // No "New admin" link — creating admins is super-admin only
-    await expect(
-      orgOwnerPage.getByRole("link", { name: "New admin", exact: true }),
-    ).not.toBeVisible();
+    // Org-owners can now create admins (chain of command), so the link is present.
+    await expect(orgOwnerPage.getByRole("link", { name: "New admin", exact: true })).toBeVisible();
   });
 
   test("org-owner can manage scoped admin and has no super-admin controls", async () => {

@@ -293,6 +293,13 @@ export interface CreateAdminInput {
   email: string;
   displayName: string;
   password: string;
+  // Optional initial membership granted atomically with the user. Required for
+  // org_owner / venue_manager creators (role/scope limited by the chain of command).
+  membership?: {
+    organizationId: string;
+    venueId: string | null;
+    role: "org_owner" | "venue_manager" | "venue_staff";
+  };
 }
 
 export interface PatchAdminInput {
@@ -354,7 +361,14 @@ export async function assignMembership(
 ): Promise<{
   membership: { id: string; organizationId: string; venueId: string | null; role: string };
 }> {
-  return unwrap(client(fetchFn).api.admin.memberships.post({ adminUserId, ...body }));
+  return unwrap(
+    client(fetchFn).api.admin.memberships.post({
+      adminUserId,
+      ...body,
+      // Normalize optional venueId → null; the API expects string | null, not undefined.
+      venueId: body.venueId ?? null,
+    }),
+  );
 }
 
 export async function revokeMembership(

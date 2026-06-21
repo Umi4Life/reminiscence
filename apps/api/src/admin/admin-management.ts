@@ -1,6 +1,12 @@
 import type { AdminMembership, AdminUser, Database } from "@queue-reminiscence/db";
-import { adminMemberships, adminSessions, adminUsers } from "@queue-reminiscence/db/schema";
-import { and, count, eq, inArray, isNull } from "drizzle-orm";
+import {
+  adminMemberships,
+  adminSessions,
+  adminUsers,
+  organizations,
+  venues,
+} from "@queue-reminiscence/db/schema";
+import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
 
 import { hashPassword } from "../auth/passwords";
 import { canManagePlatform, getOwnedOrganizationIds, type AdminRbacContext } from "../auth/rbac";
@@ -26,6 +32,14 @@ export interface CreateAdminInput {
   displayName: string;
   password: string;
   status: "active";
+  // Optional initial membership granted atomically with the user. Required when
+  // a non-super-admin creates an admin (so it lands inside their scope); omitted
+  // means a bare platform admin (super-admin only — gated in the route).
+  membership?: {
+    organizationId: string;
+    venueId: string | null;
+    role: "org_owner" | "venue_manager" | "venue_staff";
+  };
 }
 
 export interface PatchAdminInput {
@@ -35,7 +49,9 @@ export interface PatchAdminInput {
 
 export type CreateAdminResult =
   | { status: "created"; admin: AdminUserSummary }
-  | { status: "conflict" };
+  | { status: "conflict" }
+  | { status: "org_not_found" }
+  | { status: "venue_not_found" };
 
 export type ListAdminsResult =
   | { status: "ok"; admins: AdminUserSummary[] }
@@ -45,7 +61,8 @@ export type UpdateAdminResult =
   | { status: "updated"; admin: AdminUserSummary }
   | { status: "not_found" }
   | { status: "forbidden" }
-  | { status: "last_super_admin" };
+  | { status: "last_super_admin" }
+  | { status: "self_disable" };
 
 export type ResetAdminPasswordResult =
   | { status: "reset" }
@@ -60,6 +77,7 @@ export interface AdminManagementService {
     rbac: AdminRbacContext,
     adminUserId: string,
     patch: PatchAdminInput,
+    actorAdminUserId: string,
   ): Promise<UpdateAdminResult>;
   resetPassword(
     rbac: AdminRbacContext,
@@ -124,18 +142,35 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
         };
       }
 
-      // Org-owner: return only admins with memberships in their org(s)
+      // Non-super: scope to admins the caller can see. Org-owners see their whole
+      // org; venue-managers see their own venue(s). Only the in-scope memberships
+      // are returned, so other-org/venue memberships are never leaked.
       const ownedOrgIds = getOwnedOrganizationIds(rbac);
-      if (ownedOrgIds.length === 0) return { status: "forbidden" };
+      const managedVenueIds = rbac.memberships
+        .filter((m) => m.role === "venue_manager" && m.venueId !== null)
+        .map((m) => m.venueId as string);
 
-      const orgMemberships = await db
+      if (ownedOrgIds.length === 0 && managedVenueIds.length === 0) {
+        return { status: "forbidden" };
+      }
+
+      const scopeMemberships = await db
         .select()
         .from(adminMemberships)
-        .where(inArray(adminMemberships.organizationId, ownedOrgIds));
+        .where(
+          or(
+            ownedOrgIds.length > 0
+              ? inArray(adminMemberships.organizationId, ownedOrgIds)
+              : undefined,
+            managedVenueIds.length > 0
+              ? inArray(adminMemberships.venueId, managedVenueIds)
+              : undefined,
+          ),
+        );
 
-      if (orgMemberships.length === 0) return { status: "ok", admins: [] };
+      if (scopeMemberships.length === 0) return { status: "ok", admins: [] };
 
-      const adminUserIds = [...new Set(orgMemberships.map((m) => m.adminUserId))];
+      const adminUserIds = [...new Set(scopeMemberships.map((m) => m.adminUserId))];
 
       const rows = await db
         .select()
@@ -148,7 +183,7 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
         admins: rows.map((admin) =>
           toAdminUserSummary(
             admin,
-            orgMemberships.filter((m) => m.adminUserId === admin.id),
+            scopeMemberships.filter((m) => m.adminUserId === admin.id),
           ),
         ),
       };
@@ -179,22 +214,70 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
         return { status: "conflict" };
       }
 
-      const passwordHash = await hashPassword(input.password);
-      const [created] = await db
-        .insert(adminUsers)
-        .values({
-          email: normalizedEmail,
-          displayName: input.displayName.trim(),
-          passwordHash,
-          status: input.status,
-          isSuperAdmin: false,
-        })
-        .returning();
+      // Validate the initial membership scope before writing anything.
+      const membership = input.membership;
+      if (membership) {
+        const [org] = await db
+          .select({ id: organizations.id })
+          .from(organizations)
+          .where(eq(organizations.id, membership.organizationId))
+          .limit(1);
+        if (!org) return { status: "org_not_found" };
 
-      return { status: "created", admin: toAdminUserSummary(created, []) };
+        if (membership.venueId !== null) {
+          const [venue] = await db
+            .select({ id: venues.id, organizationId: venues.organizationId })
+            .from(venues)
+            .where(eq(venues.id, membership.venueId))
+            .limit(1);
+          if (!venue || venue.organizationId !== membership.organizationId) {
+            return { status: "venue_not_found" };
+          }
+        }
+      }
+
+      const passwordHash = await hashPassword(input.password);
+
+      // Create the user and (if requested) its initial membership atomically, so
+      // a non-super-admin never ends up with an orphan admin they can't see.
+      const { created, memberships } = await db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(adminUsers)
+          .values({
+            email: normalizedEmail,
+            displayName: input.displayName.trim(),
+            passwordHash,
+            status: input.status,
+            isSuperAdmin: false,
+          })
+          .returning();
+
+        if (!membership) return { created: user, memberships: [] as AdminMembership[] };
+
+        const [createdMembership] = await tx
+          .insert(adminMemberships)
+          .values({
+            adminUserId: user.id,
+            organizationId: membership.organizationId,
+            venueId: membership.venueId,
+            role: membership.role,
+          })
+          .returning();
+
+        return { created: user, memberships: [createdMembership] };
+      });
+
+      return { status: "created", admin: toAdminUserSummary(created, memberships) };
     },
 
-    async updateAdmin(rbac, adminUserId, patch): Promise<UpdateAdminResult> {
+    async updateAdmin(rbac, adminUserId, patch, actorAdminUserId): Promise<UpdateAdminResult> {
+      // Foolproof self-lockout guard: an admin can never disable their own
+      // account, regardless of role. Checked before any DB work so it can't be
+      // bypassed by permission edge cases.
+      if (patch.status === "disabled" && adminUserId === actorAdminUserId) {
+        return { status: "self_disable" };
+      }
+
       const [admin] = await db
         .select()
         .from(adminUsers)

@@ -10,12 +10,14 @@ import {
   assertSuperAdmin,
   canManageBoard,
   canManageOrganization,
+  canCreateAdminWithMembership,
   canManagePlatform,
   canManageVenue,
   canOperateBoard,
   canReadOrganization,
   canReadVenue,
   getOwnedOrganizationIds,
+  grantableCreateRoles,
   type AdminMembershipContext,
   type AdminRbacContext,
   type BoardResourceContext,
@@ -517,6 +519,140 @@ describe("admin RBAC helpers", () => {
       // org_owner requires venueId === null
       const result = getOwnedOrganizationIds(context(venueManagerMembership));
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("canCreateAdminWithMembership (creation chain of command)", () => {
+    const superAdmin: AdminRbacContext = { memberships: [], isSuperAdmin: true };
+
+    test("super-admin can grant any role anywhere", () => {
+      expect(
+        canCreateAdminWithMembership(superAdmin, {
+          organizationId: ORG_B,
+          venueId: null,
+          role: "org_owner",
+        }),
+      ).toBe(true);
+      expect(
+        canCreateAdminWithMembership(superAdmin, {
+          organizationId: ORG_B,
+          venueId: VENUE_A1,
+          role: "venue_staff",
+        }),
+      ).toBe(true);
+    });
+
+    test("org-owner can grant any role within their org", () => {
+      const ctx = context(orgOwnerMembership);
+      expect(
+        canCreateAdminWithMembership(ctx, {
+          organizationId: ORG_A,
+          venueId: null,
+          role: "org_owner",
+        }),
+      ).toBe(true);
+      expect(
+        canCreateAdminWithMembership(ctx, {
+          organizationId: ORG_A,
+          venueId: VENUE_A1,
+          role: "venue_manager",
+        }),
+      ).toBe(true);
+      expect(
+        canCreateAdminWithMembership(ctx, {
+          organizationId: ORG_A,
+          venueId: VENUE_A1,
+          role: "venue_staff",
+        }),
+      ).toBe(true);
+    });
+
+    test("org-owner cannot grant in a different org", () => {
+      const ctx = context(orgOwnerMembership);
+      expect(
+        canCreateAdminWithMembership(ctx, {
+          organizationId: ORG_B,
+          venueId: null,
+          role: "org_owner",
+        }),
+      ).toBe(false);
+    });
+
+    test("venue-manager can grant manager/staff in their own venue, not org_owner", () => {
+      const ctx = context(venueManagerMembership);
+      expect(
+        canCreateAdminWithMembership(ctx, {
+          organizationId: ORG_A,
+          venueId: VENUE_A1,
+          role: "venue_manager",
+        }),
+      ).toBe(true);
+      expect(
+        canCreateAdminWithMembership(ctx, {
+          organizationId: ORG_A,
+          venueId: VENUE_A1,
+          role: "venue_staff",
+        }),
+      ).toBe(true);
+      expect(
+        canCreateAdminWithMembership(ctx, {
+          organizationId: ORG_A,
+          venueId: null,
+          role: "org_owner",
+        }),
+      ).toBe(false);
+    });
+
+    test("venue-manager cannot grant in a venue they don't manage", () => {
+      const ctx = context(venueManagerMembership);
+      expect(
+        canCreateAdminWithMembership(ctx, {
+          organizationId: ORG_A,
+          venueId: VENUE_A2,
+          role: "venue_staff",
+        }),
+      ).toBe(false);
+    });
+
+    test("venue-staff cannot grant anything", () => {
+      const ctx = context(venueStaffMembership);
+      for (const role of ["org_owner", "venue_manager", "venue_staff"] as const) {
+        expect(
+          canCreateAdminWithMembership(ctx, {
+            organizationId: ORG_A,
+            venueId: role === "org_owner" ? null : VENUE_A1,
+            role,
+          }),
+        ).toBe(false);
+      }
+    });
+
+    test("grantableCreateRoles reflects the chain of command", () => {
+      // Org-owner asked for org-level scope → only org_owner is grantable there.
+      expect(
+        grantableCreateRoles(context(orgOwnerMembership), { organizationId: ORG_A, venueId: null }),
+      ).toEqual(["org_owner"]);
+      // Org-owner at a venue scope → venue roles.
+      expect(
+        grantableCreateRoles(context(orgOwnerMembership), {
+          organizationId: ORG_A,
+          venueId: VENUE_A1,
+        }),
+      ).toEqual(["venue_manager", "venue_staff"]);
+      // Venue-manager at their venue → manager/staff only.
+      expect(
+        grantableCreateRoles(context(venueManagerMembership), {
+          organizationId: ORG_A,
+          venueId: VENUE_A1,
+        }),
+      ).toEqual(["venue_manager", "venue_staff"]);
+      // Venue-staff → nothing.
+      expect(
+        grantableCreateRoles(context(venueStaffMembership), {
+          organizationId: ORG_A,
+          venueId: VENUE_A1,
+        }),
+      ).toEqual([]);
     });
   });
 });

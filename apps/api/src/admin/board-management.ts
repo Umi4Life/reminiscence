@@ -52,6 +52,7 @@ export interface VenueSummary {
 export interface BoardSummary {
   id: string;
   venueId: string;
+  venueName: string;
   organizationId: string;
   slug: string;
   publicSlug: string;
@@ -139,6 +140,23 @@ function getAssignedVenueIds(memberships: readonly AdminMembershipContext[]): st
   ];
 }
 
+function slugifyForPrefix(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9._~-]/g, "");
+}
+
+function prependVenueSlug(venueName: string, slug: string): string {
+  const prefix = slugifyForPrefix(venueName);
+  if (slug.startsWith(`${prefix}-`)) {
+    return slug;
+  }
+
+  return `${prefix}-${slug}`;
+}
+
 function toOrganizationSummary(organization: Organization): OrganizationSummary {
   return {
     id: organization.id,
@@ -162,11 +180,12 @@ function toVenueSummary(venue: Venue): VenueSummary {
   };
 }
 
-export function toBoardSummaryFromRow(board: Board, organizationId: string): BoardSummary {
+export function toBoardSummaryFromRow(board: Board, venue: Venue): BoardSummary {
   return {
     id: board.id,
     venueId: board.venueId,
-    organizationId,
+    venueName: venue.name,
+    organizationId: venue.organizationId,
     slug: board.slug,
     publicSlug: board.publicSlug,
     name: board.name,
@@ -243,7 +262,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
           .select({ board: boards, venue: venues })
           .from(boards)
           .innerJoin(venues, eq(boards.venueId, venues.id));
-        return rows.map((row) => toBoardSummaryFromRow(row.board, row.venue.organizationId));
+        return rows.map((row) => toBoardSummaryFromRow(row.board, row.venue));
       }
 
       const ownedOrganizationIds = getOrgOwnedOrganizationIds(rbac.memberships);
@@ -269,7 +288,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         .innerJoin(venues, eq(boards.venueId, venues.id))
         .where(or(...accessConditions));
 
-      return rows.map((row) => toBoardSummaryFromRow(row.board, row.venue.organizationId));
+      return rows.map((row) => toBoardSummaryFromRow(row.board, row.venue));
     },
 
     async getBoard(rbac: AdminRbacContext, boardId: string): Promise<BoardSummary | null> {
@@ -294,7 +313,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         return null;
       }
 
-      return toBoardSummaryFromRow(row.board, row.venue.organizationId);
+      return toBoardSummaryFromRow(row.board, row.venue);
     },
 
     async createBoard(rbac, input): Promise<CreateBoardResult> {
@@ -322,10 +341,13 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         return { status: "venue_not_found" };
       }
 
+      const normalizedSlug = prependVenueSlug(venue.name, input.slug);
+      const normalizedPublicSlug = prependVenueSlug(venue.name, input.publicSlug);
+
       const [existingVenueSlug] = await db
         .select({ id: boards.id })
         .from(boards)
-        .where(and(eq(boards.venueId, input.venueId), eq(boards.slug, input.slug)))
+        .where(and(eq(boards.venueId, input.venueId), eq(boards.slug, normalizedSlug)))
         .limit(1);
 
       if (existingVenueSlug) {
@@ -335,7 +357,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
       const [existingPublicSlug] = await db
         .select({ id: boards.id })
         .from(boards)
-        .where(eq(boards.publicSlug, input.publicSlug))
+        .where(eq(boards.publicSlug, normalizedPublicSlug))
         .limit(1);
 
       if (existingPublicSlug) {
@@ -346,8 +368,8 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         .insert(boards)
         .values({
           venueId: input.venueId,
-          slug: input.slug,
-          publicSlug: input.publicSlug,
+          slug: normalizedSlug,
+          publicSlug: normalizedPublicSlug,
           name: input.name,
           description: input.description,
           status: input.status,
@@ -361,7 +383,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
 
       return {
         status: "created",
-        board: toBoardSummaryFromRow(created, venue.organizationId),
+        board: toBoardSummaryFromRow(created, venue),
       };
     },
 
@@ -435,7 +457,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
 
       return {
         status: "updated",
-        board: toBoardSummaryFromRow(updated, row.venue.organizationId),
+        board: toBoardSummaryFromRow(updated, row.venue),
       };
     },
 

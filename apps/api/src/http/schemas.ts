@@ -324,6 +324,7 @@ export const BoardSummary = t.Object({
   id: t.String(),
   venueId: t.String(),
   organizationId: t.String(),
+  venueName: t.String(),
   slug: t.String(),
   publicSlug: t.String(),
   name: t.String(),

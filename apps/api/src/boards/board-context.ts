@@ -1,4 +1,4 @@
-import type { Board, Database, DbTransaction } from "@queue-reminiscence/db";
+import type { Board, Database, DbTransaction, Venue } from "@queue-reminiscence/db";
 import { boards, venues } from "@queue-reminiscence/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -6,6 +6,8 @@ import type { BoardResourceContext } from "../auth/rbac";
 
 export type BoardWithResourceContext = BoardResourceContext & {
   board: Board;
+  venue: Venue;
+  venueName: string;
 };
 
 type DbLike = Database | DbTransaction;
@@ -30,6 +32,8 @@ export async function loadBoardWithResourceContext(
     venueId: row.venue.id,
     organizationId: row.venue.organizationId,
     board: row.board,
+    venue: row.venue,
+    venueName: row.venue.name,
   };
 }
 

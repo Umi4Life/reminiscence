@@ -17,6 +17,8 @@
   let error = $state<string | null>(null);
   let busy = $state(false);
 
+  let selectedVenue = $derived(data.venues.find((venue) => venue.id === venueId));
+
   function slugFromName(value: string): string {
     return value
       .toLowerCase()
@@ -25,9 +27,17 @@
       .replace(/[^a-z0-9._~-]/g, "");
   }
 
+  function venuePrefix(): string {
+    return selectedVenue ? `${slugFromName(selectedVenue.name)}-` : "";
+  }
+
+  function syncAutoSlugs() {
+    if (!slugTouched) slug = `${venuePrefix()}${slugFromName(name)}`;
+    if (!publicSlugTouched) publicSlug = `${venuePrefix()}${slugFromName(name)}`;
+  }
+
   function onNameInput() {
-    if (!slugTouched) slug = slugFromName(name);
-    if (!publicSlugTouched) publicSlug = slugFromName(name);
+    syncAutoSlugs();
   }
 
   function onSlugInput() {

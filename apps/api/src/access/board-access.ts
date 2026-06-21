@@ -161,7 +161,7 @@ export function createDbBoardAccessService(db: Database, config: AppConfig): Boa
 
       return {
         status: "rotated",
-        board: toBoardSummaryFromRow(mutation.board, context.organizationId),
+        board: toBoardSummaryFromRow(mutation.board, context.venue),
         credential: {
           id: mutation.credential.id,
           accessUrl: buildPublicAccessUrl(config, accessCode),

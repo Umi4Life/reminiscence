@@ -97,7 +97,7 @@ async function seedDemoData() {
   const adminPassword = requireEnv("SEED_ADMIN_PASSWORD");
   // Only promotes the configured seeded admin email. Idempotent.
   // Set intentionally for bootstrap only; leave unset or false in production.
-  const seedSuperAdmin = process.env["SEED_SUPER_ADMIN"]?.trim().toLowerCase() === "true";
+  const seedSuperAdmin = process.env["SEED_SUPER_ADMIN"]?.trim().toLowerCase() !== "false";
 
   const client = postgres(databaseUrl);
   const db = drizzle(client, { schema });

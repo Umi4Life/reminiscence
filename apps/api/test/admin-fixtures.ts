@@ -105,10 +105,12 @@ function boardSummary(
   organizationId: string,
   slug: string,
   name: string,
+  venueName: string,
 ): BoardSummary {
   return {
     id,
     venueId,
+    venueName,
     organizationId,
     slug,
     publicSlug: `${slug}-public`,
@@ -128,9 +130,9 @@ function boardSummary(
 }
 
 export const boardsFixture: BoardSummary[] = [
-  boardSummary(BOARD_A1, VENUE_A1, ORG_A, "board-a1", "Board A1"),
-  boardSummary(BOARD_A2, VENUE_A2, ORG_A, "board-a2", "Board A2"),
-  boardSummary(BOARD_B1, VENUE_B1, ORG_B, "board-b1", "Board B1"),
+  boardSummary(BOARD_A1, VENUE_A1, ORG_A, "board-a1", "Board A1", "Venue A1"),
+  boardSummary(BOARD_A2, VENUE_A2, ORG_A, "board-a2", "Board A2", "Venue A2"),
+  boardSummary(BOARD_B1, VENUE_B1, ORG_B, "board-b1", "Board B1", "Venue B1"),
 ];
 
 export const orgOwnerMembership: AdminMembershipContext = {
@@ -366,6 +368,7 @@ export function createFakeBoardManagementHarness(
       const created: BoardSummary = {
         id: crypto.randomUUID(),
         venueId: venue.id,
+        venueName: venue.name,
         organizationId: venue.organizationId,
         slug: input.slug,
         publicSlug: input.publicSlug,

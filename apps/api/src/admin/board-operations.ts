@@ -175,7 +175,7 @@ async function runBoardOperation(
   );
 
   return {
-    board: toBoardSummaryFromRow(mutation.board, context.organizationId),
+    board: toBoardSummaryFromRow(mutation.board, context.venue),
     changed: mutation.changed,
   };
 }

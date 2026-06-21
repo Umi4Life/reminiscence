@@ -9,6 +9,7 @@
   let isOrgOwner = $derived(
     data.session?.memberships.some((m) => m.role === "org_owner") ?? false,
   );
+  let organizationLabel = $derived(data.organizations.map((org) => org.name).join(" · "));
   let queueCounts = $state<Record<string, number | null>>({});
   let logoutBusy = $state(false);
 
@@ -43,6 +44,9 @@
       <div>
         <p class="header-label">Admin</p>
         <h1 class="header-name">{data.session?.admin.displayName ?? ""}</h1>
+        {#if organizationLabel}
+          <p class="header-org">{organizationLabel}</p>
+        {/if}
       </div>
       <div class="header-actions">
         <a href="/account" class="account-btn">Account</a>
@@ -93,6 +97,7 @@
           <a href="/boards/{board.id}" class="board-row">
             <div class="board-info">
               <span class="board-name">{board.name}</span>
+              <span class="board-venue">{board.venueName}</span>
               <span class="board-slug">{board.publicSlug}</span>
             </div>
             <div class="board-meta">
@@ -145,6 +150,12 @@
     font-size: 1.375rem;
     font-weight: 600;
     color: var(--color-text);
+  }
+
+  .header-org {
+    margin-top: 0.125rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
   }
 
   .header-actions {
@@ -285,14 +296,19 @@
   }
 
   .board-name {
-    font-weight: 600;
-    color: var(--color-text);
     font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  .board-venue {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
   }
 
   .board-slug {
-    font-size: 0.75rem;
-    color: var(--color-text-faint);
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
   }
 
   .board-meta {

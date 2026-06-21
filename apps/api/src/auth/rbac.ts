@@ -19,6 +19,12 @@ export type VenueResourceContext = {
   venueId: string;
 };
 
+export type MembershipAssignmentContext = {
+  organizationId: string;
+  venueId: string | null;
+  role: AdminMembershipRole;
+};
+
 export type BoardResourceContext = VenueResourceContext & {
   boardId: string;
 };
@@ -123,6 +129,28 @@ export function canOperateBoard(
   );
 
   return membership?.role === "venue_manager" || membership?.role === "venue_staff";
+}
+
+export function canAssignMembership(
+  context: AdminRbacContext,
+  assignment: MembershipAssignmentContext,
+): boolean {
+  if (context.isSuperAdmin) return true;
+  if (hasOrgOwnerMembership(context.memberships, assignment.organizationId)) {
+    return true;
+  }
+
+  if (assignment.role !== "venue_staff" || assignment.venueId === null) {
+    return false;
+  }
+
+  const membership = findVenueMembership(
+    context.memberships,
+    assignment.organizationId,
+    assignment.venueId,
+  );
+
+  return membership?.role === "venue_manager";
 }
 
 export function canManagePlatform(context: AdminRbacContext): boolean {

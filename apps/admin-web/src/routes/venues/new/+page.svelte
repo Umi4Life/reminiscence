@@ -1,11 +1,14 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { onMount } from "svelte";
   import { createVenue } from "$lib/api";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
   const slugPattern = /^[a-z0-9._~-]+$/;
+  const timezoneOptions =
+    typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
 
   let organizationId = $state(data.organizations.length === 1 ? data.organizations[0].id : "");
   let name = $state("");
@@ -15,6 +18,15 @@
   let slugTouched = $state(false);
   let error = $state<string | null>(null);
   let busy = $state(false);
+
+  onMount(() => {
+    if (!timezone.trim()) {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (detected) {
+        timezone = detected;
+      }
+    }
+  });
 
   function slugFromName(value: string): string {
     return value
@@ -140,7 +152,13 @@
               disabled={busy}
               placeholder="Asia/Bangkok"
               autocomplete="off"
+              list="timezone-options"
             />
+            <datalist id="timezone-options">
+              {#each timezoneOptions as zone}
+                <option value={zone} />
+              {/each}
+            </datalist>
           </label>
 
           <label>

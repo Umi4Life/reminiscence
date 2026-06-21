@@ -2,7 +2,12 @@ import type { AdminMembership, Database } from "@queue-reminiscence/db";
 import { adminMemberships, adminUsers, organizations, venues } from "@queue-reminiscence/db/schema";
 import { and, count, eq, isNull } from "drizzle-orm";
 
-import { canManageOrganization, canManagePlatform, type AdminRbacContext } from "../auth/rbac";
+import {
+  canAssignMembership,
+  canManageOrganization,
+  canManagePlatform,
+  type AdminRbacContext,
+} from "../auth/rbac";
 
 export type { AdminMembershipRole } from "../auth/rbac";
 
@@ -68,7 +73,7 @@ export function createDbMembershipManagementService(db: Database): MembershipMan
   return {
     async assignMembership(rbac, input): Promise<AssignMembershipResult> {
       // Quick permission gate before any DB reads
-      if (!canManagePlatform(rbac) && !canManageOrganization(rbac, input.organizationId)) {
+      if (!canAssignMembership(rbac, input)) {
         return { status: "forbidden" };
       }
 

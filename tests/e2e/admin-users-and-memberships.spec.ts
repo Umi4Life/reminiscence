@@ -40,10 +40,12 @@ test.describe("admin users and memberships", () => {
 
   // --- Super-admin baseline ---
 
-  test("dashboard shows Admins section for super-admin", async () => {
+  test("dashboard shows Admins and Venues sections for super-admin", async () => {
     await page.goto("http://localhost:3001/");
     await expect(page.getByRole("heading", { name: "Admins" })).toBeVisible();
     await expect(page.getByTestId("admins-manage-link")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Venues" })).toBeVisible();
+    await expect(page.getByTestId("venues-manage-link")).toBeVisible();
   });
 
   test("admins list page is accessible", async () => {
@@ -90,7 +92,9 @@ test.describe("admin users and memberships", () => {
 
   // --- Org-owner setup: log in once, reuse context for all org-owner tests ---
 
-  test("org-owner can log in and see Admins entry on dashboard", async ({ browser }) => {
+  test("org-owner can log in and see Admins and Venues entries on dashboard", async ({
+    browser,
+  }) => {
     orgOwnerCtx = await browser.newContext();
     orgOwnerPage = await orgOwnerCtx.newPage();
     await orgOwnerPage.goto("http://localhost:3001/login");
@@ -101,12 +105,23 @@ test.describe("admin users and memberships", () => {
     // Org-owner should see Admins section
     await expect(orgOwnerPage.getByRole("heading", { name: "Admins" })).toBeVisible();
     await expect(orgOwnerPage.getByTestId("admins-manage-link")).toBeVisible();
+    // Org-owner owns venue setup for their organization before board setup.
+    await expect(orgOwnerPage.getByRole("heading", { name: "Venues" })).toBeVisible();
+    await expect(orgOwnerPage.getByTestId("venues-manage-link")).toBeVisible();
     // Organizations section is super-admin only
     await expect(orgOwnerPage.getByRole("heading", { name: "Organizations" })).not.toBeVisible();
   });
 
+  test("org-owner can reach venue management from dashboard", async () => {
+    await orgOwnerPage.getByTestId("venues-manage-link").click();
+    await expect(orgOwnerPage).toHaveURL(/\/venues/);
+    await expect(orgOwnerPage.getByRole("heading", { name: "Venues" })).toBeVisible();
+    await expect(orgOwnerPage.getByRole("link", { name: "New venue" }).first()).toBeVisible();
+  });
+
   test("org-owner can list scoped admins without create button", async () => {
     // Navigate via the Manage link (SPA navigation keeps session warm)
+    await orgOwnerPage.goto("http://localhost:3001/");
     await orgOwnerPage.getByTestId("admins-manage-link").click();
     await expect(orgOwnerPage).toHaveURL(/\/admins/);
     await expect(orgOwnerPage.getByRole("heading", { name: "Admins" })).toBeVisible();

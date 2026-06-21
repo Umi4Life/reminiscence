@@ -88,8 +88,11 @@
   <main class="content">
     <div class="card">
       {#if data.venues.length === 0}
-        <p class="error">No venues available. Contact your organisation owner for access.</p>
-        <a href="/" class="cancel-link">← Back to dashboard</a>
+        <p class="error">No venues available. Create a venue before creating a board.</p>
+        <div class="actions">
+          <a href="/venues/new" class="btn-primary">Create venue</a>
+          <a href="/" class="cancel-link">← Back to dashboard</a>
+        </div>
       {:else}
         {#if error}
           <p class="error">{error}</p>

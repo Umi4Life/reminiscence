@@ -68,6 +68,12 @@
         <a href="/admins" class="new-board-btn" data-testid="admins-manage-link">Manage</a>
       </div>
       <div style="margin-bottom: 1.5rem;"></div>
+
+      <div class="section-header">
+        <h2 class="section-title">Venues</h2>
+        <a href="/venues" class="new-board-btn" data-testid="venues-manage-link">Manage</a>
+      </div>
+      <div style="margin-bottom: 1.5rem;"></div>
     {/if}
 
     <div class="section-header">
@@ -148,16 +154,26 @@
     flex-shrink: 0;
   }
 
-  .account-btn {
+  .account-btn,
+  .logout-btn {
     background: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-sm);
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
     color: var(--color-text-strong);
-    text-decoration: none;
     font-weight: 500;
     white-space: nowrap;
+    min-width: 5.25rem;
+    min-height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .account-btn {
+    text-decoration: none;
   }
 
   .account-btn:hover {
@@ -166,15 +182,7 @@
   }
 
   .logout-btn {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-sm);
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-    color: var(--color-text-strong);
     cursor: pointer;
-    font-weight: 500;
-    white-space: nowrap;
   }
 
   .logout-btn:hover:not(:disabled) {

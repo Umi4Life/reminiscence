@@ -100,7 +100,9 @@ bun run --cwd packages/db db:migrate
 bun run --cwd packages/db db:seed
 ```
 
-Then open <http://localhost:3001>. See [`docs/deployment/local-development.md`](docs/deployment/local-development.md) for the service map and troubleshooting, and [`docs/deployment/homelab-traefik-postgres.md`](docs/deployment/homelab-traefik-postgres.md) for a homelab deployment with external Postgres + Traefik (`TRUST_PROXY=true`).
+Then open <http://localhost:3001>. See [`docs/deployment/local-development.md`](docs/deployment/local-development.md) for the service map and troubleshooting, [`docs/deployment/lan-direct-demo.md`](docs/deployment/lan-direct-demo.md) when testing from another LAN device without a reverse proxy, and [`docs/deployment/homelab-traefik-postgres.md`](docs/deployment/homelab-traefik-postgres.md) for a homelab deployment with external Postgres + Traefik (`TRUST_PROXY=true`).
+
+> **LAN direct demo note:** if you bypass Traefik and open `http://<lan-ip>:3000`, `:3001`, and `:3002` directly, configure explicit LAN URL origins and keep `TRUST_PROXY=false`. `PUBLIC_API_BASE_URL=/api` only works when a reverse proxy routes `/api` to the API from the same origin.
 
 ## Deploy from the published image
 
@@ -151,7 +153,7 @@ The e2e suite boots its **own isolated Postgres container on port 5433** (never 
 ## Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, workspace layout, quality gate, conventions.
-- [`docs/deployment/`](docs/deployment/) — local, GHCR-image, and homelab operational guides.
+- [`docs/deployment/`](docs/deployment/) — local, LAN-direct demo, GHCR-image, and homelab operational guides.
 - [`docs/journal/`](docs/journal/) — preserved MVP build history (architecture, product PRD, and the 14-phase plan + completion journals).
 
 ## Status

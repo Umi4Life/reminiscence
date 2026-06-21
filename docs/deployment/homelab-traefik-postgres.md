@@ -7,6 +7,8 @@ This guide covers deploying Queue Reminiscence on a self-hosted Linux machine wi
 
 > **Compose file:** this guide uses `docker-compose.homelab.yml`, the app-only overlay for external Postgres + Traefik.
 
+> **Bypassing Traefik?** Do not use this origin/proxy shape for direct LAN-port testing. If you open `http://<lan-ip>:3000`, `:3001`, and `:3002` directly, use [`lan-direct-demo.md`](lan-direct-demo.md): explicit LAN URL origins, browser API base `http://<lan-ip>:3002/api`, and `TRUST_PROXY=false`.
+
 ---
 
 ## Prerequisites

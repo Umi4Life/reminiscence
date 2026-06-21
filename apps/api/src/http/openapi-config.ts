@@ -107,7 +107,7 @@ export const openApiDocumentation: Partial<OpenAPIV3.Document> = {
   },
   servers: [
     { url: "http://localhost:3002", description: "Local development" },
-    { url: "https://api.example.com", description: "Production (replace with actual URL)" },
+    { url: "https://api-reminiscence.umi4.life", description: "Production" },
   ],
   tags: [
     { name: API_TAGS.health, description: "Liveness and readiness probes." },

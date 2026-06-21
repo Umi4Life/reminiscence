@@ -78,6 +78,33 @@ export interface AppDeps {
   displayStateService?: DisplayStateService;
 }
 
+// TypeBox's t.Date() serialises to anyOf: [{"type":"Date"}, ...]. "Date" is not
+// a valid OpenAPI 3.0 type and causes Scalar to fail rendering the whole document.
+// Strip that variant from every anyOf array before sending the spec to the client.
+function stripInvalidOpenApiTypes(value: unknown): unknown {
+  if (typeof value !== "object" || value === null) return value;
+  if (Array.isArray(value)) return value.map(stripInvalidOpenApiTypes);
+  const obj = value as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === "anyOf" && Array.isArray(v)) {
+      result[k] = v.map((item) => {
+        if (
+          typeof item === "object" &&
+          item !== null &&
+          (item as Record<string, unknown>).type === "Date"
+        ) {
+          return { type: "string", format: "date-time" };
+        }
+        return stripInvalidOpenApiTypes(item);
+      });
+    } else {
+      result[k] = stripInvalidOpenApiTypes(v);
+    }
+  }
+  return result;
+}
+
 function loadAppConfig(): AppConfig {
   const runtimeGlobal = globalThis as typeof globalThis & {
     Bun?: { env: Record<string, string | undefined> };
@@ -151,6 +178,10 @@ export function createApp(deps: AppDeps = {}) {
     serve: { maxRequestBodySize: 64 * 1024 },
   })
     .use(openapi({ path: "/api/docs", documentation: openApiDocumentation }))
+    .onAfterHandle(({ request, response }) => {
+      if (new URL(request.url).pathname !== "/api/docs/json") return;
+      return stripInvalidOpenApiTypes(response);
+    })
     .onRequest(({ request, set }) => {
       const { headers, preflight } = resolveCors(allowedOrigins, request);
       Object.assign(set.headers, headers, securityHeaders);

@@ -441,6 +441,22 @@ describe("DELETE /api/admin/memberships/:id", () => {
     expect(json.error.code).toBe("conflict");
   });
 
+  test("org-owner cannot revoke the last org_owner in their org — returns 409", async () => {
+    const store = makeStore({ ownerCounts: new Map([[ORG_A, 1]]) });
+    const app = createOrgOwnerApp(store);
+
+    const response = await app.handle(
+      new Request(`http://localhost/api/admin/memberships/${MEMBERSHIP_1}`, {
+        method: "DELETE",
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    const json = (await response.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("conflict");
+  });
+
   test("returns 401 without a session cookie", async () => {
     const store = makeStore();
     const app = createSuperAdminApp(store);

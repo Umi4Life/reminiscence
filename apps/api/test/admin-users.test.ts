@@ -602,6 +602,44 @@ describe("admin users routes", () => {
 
       expect(response.status).toBe(404);
     });
+
+    test("isSuperAdmin field in PATCH body is silently stripped — privilege level unchanged", async () => {
+      const service = createFakeAdminManagementService();
+      const app = createSuperAdminApp(service);
+
+      const response = await app.handle(
+        new Request(`http://localhost/api/admin/admins/${ADMIN_1}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify({ displayName: "Renamed", isSuperAdmin: true }),
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      const json = (await response.json()) as {
+        ok: true;
+        data: { admin: { displayName: string; isSuperAdmin: boolean } };
+      };
+      expect(json.data.admin.displayName).toBe("Renamed");
+      expect(json.data.admin.isSuperAdmin).toBe(false);
+    });
+
+    test("org-owner cannot disable a super-admin in their org via status patch — gets 403", async () => {
+      const service = createFakeAdminManagementService(
+        adminsWithSuperAdminInOrgA.map((a) => ({ ...a })),
+      );
+      const app = createOrgOwnerApp(service);
+
+      const response = await app.handle(
+        new Request(`http://localhost/api/admin/admins/${ADMIN_SUPER}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json", cookie: sessionCookie },
+          body: JSON.stringify({ status: "disabled" }),
+        }),
+      );
+
+      expect(response.status).toBe(403);
+    });
   });
 
   describe("POST /api/admin/admins/:adminUserId/password-reset", () => {

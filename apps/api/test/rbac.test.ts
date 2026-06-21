@@ -452,6 +452,33 @@ describe("admin RBAC helpers", () => {
     });
   });
 
+  describe("operator hierarchy isolation", () => {
+    test("org_owner holding memberships in all orgs still cannot manage platform", () => {
+      const multiOrgOwner = context(
+        membership(ORG_A, null, "org_owner"),
+        membership(ORG_B, null, "org_owner"),
+      );
+      expect(canManagePlatform(multiOrgOwner)).toBe(false);
+    });
+
+    test("isSuperAdmin: false with full org coverage cannot pass canManagePlatform", () => {
+      const admin: AdminRbacContext = {
+        memberships: [
+          { organizationId: ORG_A, venueId: null, role: "org_owner" },
+          { organizationId: ORG_B, venueId: null, role: "org_owner" },
+        ],
+        isSuperAdmin: false,
+      };
+      expect(canManagePlatform(admin)).toBe(false);
+    });
+
+    test("org_owner scope is strictly limited to their own org — no lateral access", () => {
+      const orgAOwner = context(membership(ORG_A, null, "org_owner"));
+      expect(canManageOrganization(orgAOwner, ORG_A)).toBe(true);
+      expect(canManageOrganization(orgAOwner, ORG_B)).toBe(false);
+    });
+  });
+
   describe("getOwnedOrganizationIds", () => {
     test("returns org IDs where the context has org_owner role", () => {
       const result = getOwnedOrganizationIds(context(orgOwnerMembership));

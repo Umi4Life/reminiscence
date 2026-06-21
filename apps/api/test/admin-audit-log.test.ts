@@ -407,4 +407,168 @@ describe("audit log — membership mutations", () => {
 
     expect(events.length).toBe(0);
   });
+
+  test("no audit event when membership revocation is forbidden", async () => {
+    const { events, service } = createCapturingAuditService();
+
+    function createForbiddingMembershipManagement(): MembershipManagementService {
+      return {
+        async assignMembership() {
+          return { status: "forbidden" };
+        },
+        async revokeMembership() {
+          return { status: "forbidden" };
+        },
+      };
+    }
+
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService([], { isSuperAdmin: true }),
+      membershipManagementService: createForbiddingMembershipManagement(),
+      auditLogService: service,
+      checkDatabase: async () => true,
+    });
+
+    await app.handle(
+      new Request(`http://localhost/api/admin/memberships/${MEMBERSHIP_ID}`, {
+        method: "DELETE",
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(events.length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// No audit event on guarded admin-user rejections
+// ---------------------------------------------------------------------------
+
+describe("audit log — no event on guarded admin rejections", () => {
+  test("no audit event when admin update is forbidden (super-admin target protection)", async () => {
+    const { events, service } = createCapturingAuditService();
+
+    function createForbiddingAdminManagement(): AdminManagementService {
+      return {
+        async listAdmins() {
+          return { status: "ok", admins: [] };
+        },
+        async getAdmin(id) {
+          return {
+            id,
+            email: "target@example.com",
+            displayName: "Target",
+            status: "active",
+            isSuperAdmin: true,
+            memberships: [],
+            createdAt: ts,
+            updatedAt: ts,
+          };
+        },
+        async createAdmin(input) {
+          return {
+            status: "created",
+            admin: {
+              id: "new-id",
+              email: input.email,
+              displayName: input.displayName,
+              status: input.status,
+              isSuperAdmin: false,
+              memberships: [],
+              createdAt: ts,
+              updatedAt: ts,
+            },
+          };
+        },
+        async updateAdmin() {
+          return { status: "forbidden" };
+        },
+        async resetPassword() {
+          return { status: "forbidden" };
+        },
+      };
+    }
+
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService([], { isSuperAdmin: true }),
+      adminManagementService: createForbiddingAdminManagement(),
+      auditLogService: service,
+      checkDatabase: async () => true,
+    });
+
+    await app.handle(
+      new Request(`http://localhost/api/admin/admins/${ADMIN_TARGET_ID}`, {
+        method: "PATCH",
+        headers: { cookie: sessionCookie, "content-type": "application/json" },
+        body: JSON.stringify({ status: "disabled" }),
+      }),
+    );
+
+    expect(events.length).toBe(0);
+  });
+
+  test("no audit event when last-super-admin disable is blocked (400)", async () => {
+    const { events, service } = createCapturingAuditService();
+
+    function createLastSuperAdminManagement(): AdminManagementService {
+      return {
+        async listAdmins() {
+          return { status: "ok", admins: [] };
+        },
+        async getAdmin(id) {
+          return {
+            id,
+            email: "super@example.com",
+            displayName: "Super",
+            status: "active",
+            isSuperAdmin: true,
+            memberships: [],
+            createdAt: ts,
+            updatedAt: ts,
+          };
+        },
+        async createAdmin(input) {
+          return {
+            status: "created",
+            admin: {
+              id: "new-id",
+              email: input.email,
+              displayName: input.displayName,
+              status: input.status,
+              isSuperAdmin: false,
+              memberships: [],
+              createdAt: ts,
+              updatedAt: ts,
+            },
+          };
+        },
+        async updateAdmin() {
+          return { status: "last_super_admin" };
+        },
+        async resetPassword() {
+          return { status: "not_found" };
+        },
+      };
+    }
+
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService([], { isSuperAdmin: true }),
+      adminManagementService: createLastSuperAdminManagement(),
+      auditLogService: service,
+      checkDatabase: async () => true,
+    });
+
+    await app.handle(
+      new Request(`http://localhost/api/admin/admins/${ADMIN_TARGET_ID}`, {
+        method: "PATCH",
+        headers: { cookie: sessionCookie, "content-type": "application/json" },
+        body: JSON.stringify({ status: "disabled" }),
+      }),
+    );
+
+    expect(events.length).toBe(0);
+  });
 });

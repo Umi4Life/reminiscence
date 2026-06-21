@@ -7,9 +7,12 @@ import {
   BOARD_B1,
   createFakeAuthService,
   createFakeBoardManagementService,
+  createFakeOrgManagementService,
   createFakeVenueManagementService,
+  ORG_B,
   organizationsFixture,
   sessionCookie,
+  VENUE_A1,
   venuesFixture,
 } from "./admin-fixtures";
 import { testAppConfig } from "./test-config";
@@ -183,7 +186,54 @@ describe("super-admin route propagation", () => {
     const json = (await response.json()) as { ok: false; error: { code: string } };
     expect(json.error.code).toBe("validation_error");
   });
+});
 
-  // TODO PR-E: Add super-admin delete-guard regression tests once org-level
-  // delete guards exist (they are scoped to boards in this PR only).
+// Super-admin scope bypass only applies to tenant resource visibility.
+// Delete guards (not_empty, has_boards) are enforced independently and
+// cannot be bypassed by the super-admin flag.
+describe("super-admin delete guards — scope bypass does not override content guards", () => {
+  test("super-admin cannot delete an org that still has venues — gets 400", async () => {
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService([], { isSuperAdmin: true }),
+      boardManagementService: createFakeBoardManagementService(),
+      orgManagementService: createFakeOrgManagementService(),
+      checkDatabase: async () => true,
+    });
+
+    const response = await app.handle(
+      new Request(`http://localhost/api/admin/organizations/${ORG_B}`, {
+        method: "DELETE",
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const json = (await response.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("validation_error");
+  });
+
+  test("super-admin cannot delete a venue that still has boards — gets 400", async () => {
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService([], { isSuperAdmin: true }),
+      boardManagementService: createFakeBoardManagementService(),
+      venueManagementService: createFakeVenueManagementService(
+        venuesFixture.map((v) => ({ ...v })),
+        new Set([VENUE_A1]),
+      ),
+      checkDatabase: async () => true,
+    });
+
+    const response = await app.handle(
+      new Request(`http://localhost/api/admin/venues/${VENUE_A1}`, {
+        method: "DELETE",
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const json = (await response.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("validation_error");
+  });
 });

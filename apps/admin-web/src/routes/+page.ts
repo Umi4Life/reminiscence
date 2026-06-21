@@ -1,4 +1,9 @@
-import { listBoards, listOrganizations, type BoardSummary, type OrganizationSummary } from "$lib/api";
+import {
+  listBoards,
+  listOrganizations,
+  type BoardSummary,
+  type OrganizationSummary,
+} from "$lib/api";
 import type { PageLoad } from "./$types";
 
 export const ssr = false;

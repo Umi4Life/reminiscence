@@ -190,7 +190,6 @@ export function createApp(deps: AppDeps = {}) {
 </head>
 <body>
   <h1>Reminiscence</h1>
-  <p>Queue management API. See <a href="/api/docs">API documentation</a>.</p>
 </body>
 </html>`,
         { headers: { "content-type": "text/html; charset=utf-8" } },

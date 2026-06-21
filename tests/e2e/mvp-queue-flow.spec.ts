@@ -62,6 +62,26 @@ test.describe("MVP queue flow", () => {
     await expect(publicPage.getByRole("heading", { name: "CHUNITHM Gold" })).toBeVisible();
   });
 
+  test("blocked cookies surface an honest notice instead of hidden controls", async () => {
+    // A browser that blocks cookies still completes the claim server-side and
+    // lands on the board with `?claimed=1`, but the session cookie never persists,
+    // so the board read reports no mutation access. Reproduce that end state with a
+    // fresh context (no session cookie) hitting the board with the claim marker.
+    const origin = new URL(accessUrl).origin;
+    const blockedCtx = await publicPage.context().browser()!.newContext();
+    const blockedPage = await blockedCtx.newPage();
+    await blockedPage.goto(`${origin}/b/local-demo-venue-chunithm-gold?claimed=1`);
+    // The board is still viewable...
+    await expect(blockedPage.getByRole("heading", { name: "CHUNITHM Gold" })).toBeVisible();
+    // ...and the cookie problem is named explicitly rather than misreported as an
+    // expired session, and the join form is not silently shown.
+    await expect(
+      blockedPage.getByText("Your browser is blocking cookies for this site"),
+    ).toBeVisible();
+    await expect(blockedPage.locator("#display-name")).toHaveCount(0);
+    await blockedCtx.close();
+  });
+
   test("participant adds Aki to queue", async () => {
     await publicPage.locator("#display-name").fill("Aki");
     await publicPage.getByRole("button", { name: "Join queue" }).click();

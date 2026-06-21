@@ -17,6 +17,11 @@ import {
 
 export const boardStatusEnum = pgEnum("board_status", ["open", "closed"]);
 
+// RESERVED / NON-FUNCTIONAL. The public read path never consults this value:
+// a board is always viewable unless deleted (the golden rule — see boards.status
+// and apps/api queue/read.ts getBoard). `access_code_required` is stored if set
+// but intentionally has no effect. Do NOT wire this into the public read path
+// without first revisiting that invariant.
 export const publicViewPolicyEnum = pgEnum("public_view_policy", ["open", "access_code_required"]);
 
 export const publicMutationPolicyEnum = pgEnum("public_mutation_policy", [
@@ -116,7 +121,10 @@ export const boards = pgTable(
     publicSlug: varchar("public_slug", { length: 64 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
+    // `closed` disables writes only; the board stays viewable. Visibility ends
+    // solely when the row is deleted (the golden rule).
     status: boardStatusEnum("status").notNull(),
+    // Reserved / non-functional — see publicViewPolicyEnum. Viewing is never gated.
     publicViewPolicy: publicViewPolicyEnum("public_view_policy").notNull(),
     publicAddPolicy: publicMutationPolicyEnum("public_add_policy").notNull(),
     publicRemovePolicy: publicMutationPolicyEnum("public_remove_policy").notNull(),

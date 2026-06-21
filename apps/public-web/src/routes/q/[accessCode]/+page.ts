@@ -12,7 +12,11 @@ export const load: PageLoad = async ({ params, fetch }) => {
   const result = await claimAccess(params.accessCode, fetch);
 
   if (result.claimed) {
-    redirect(302, `/b/${result.board.publicSlug}`);
+    // The claim succeeded server-side and a session cookie was issued. We tag the
+    // redirect so the board page can tell a fresh claim apart from a plain visit
+    // and, if the cookie failed to persist (browser blocking cookies), surface an
+    // honest notice instead of silently hiding the controls.
+    redirect(302, `/b/${result.board.publicSlug}?claimed=1`);
   }
 
   return { result };

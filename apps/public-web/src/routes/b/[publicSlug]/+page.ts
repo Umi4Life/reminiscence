@@ -5,7 +5,7 @@ import type { PageLoad } from "./$types";
 // Board mutation access depends on the HttpOnly API session cookie in the browser.
 export const ssr = false;
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, url, fetch }) => {
   let board: BoardData | null = null;
   let events: BoardEvent[] = [];
 
@@ -25,5 +25,14 @@ export const load: PageLoad = async ({ params, fetch }) => {
     }
   }
 
-  return { board, events };
+  // When we arrive straight from a successful claim (`?claimed=1`) but the board
+  // read reports no session (`mutationAccess.available === false`), the session
+  // cookie was issued by the API yet did not come back on this request — i.e. the
+  // browser is blocking cookies for this site. `available` reflects only whether a
+  // session resolved server-side, independent of board policy or open/closed
+  // state, so it is a precise signal with no false positives from policy.
+  const cookiesBlocked =
+    url.searchParams.get("claimed") === "1" && board !== null && !board.mutationAccess.available;
+
+  return { board, events, cookiesBlocked };
 };

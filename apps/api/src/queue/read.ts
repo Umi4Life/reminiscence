@@ -116,6 +116,11 @@ export function createDbPublicBoardReadService(
   publicSessionService: PublicSessionService,
 ): PublicBoardReadService {
   return {
+    // GOLDEN RULE: a board is always viewable unless deleted. This read is never
+    // gated on board status, on the presence/validity of a session, or on
+    // publicViewPolicy — the only `null` (→ 404) is a missing row. `status` and
+    // the session are read solely to compute write access (`mutationAccess`);
+    // `closed` disables writes, not viewing. Do not add a view gate here.
     async getBoard(publicSlug, sessionToken) {
       const [row] = await db
         .select({

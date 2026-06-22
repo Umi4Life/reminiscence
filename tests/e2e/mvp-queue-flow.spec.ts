@@ -47,12 +47,24 @@ test.describe("MVP queue flow", () => {
     await expect(closeBtn).toBeVisible();
   });
 
-  test("admin generates QR link and reads access URL", async () => {
-    await adminPage.getByRole("button", { name: "Generate QR" }).click();
-    await adminPage.getByRole("dialog").getByRole("button", { name: "Generate QR" }).click();
-    const rotateUrlEl = adminPage.locator(".qr-card-url");
-    await expect(rotateUrlEl).toBeVisible();
-    accessUrl = (await rotateUrlEl.textContent())?.trim() ?? "";
+  test("admin gets an active QR link and reads access URL", async () => {
+    const boardId = new URL(adminPage.url()).pathname.split("/").pop();
+    expect(boardId).toBeTruthy();
+
+    // This MVP flow only needs a fresh active QR URL for the participant path.
+    // Dedicated QR UX coverage above verifies the visible admin card/buttons.
+    const rotateResult = await adminPage.evaluate(async (id) => {
+      const response = await fetch(`/api/admin/boards/${id}/access-credentials/rotate`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to rotate QR credential: ${response.status}`);
+      }
+      return response.json();
+    }, boardId);
+
+    accessUrl = rotateResult.data.credential.accessUrl;
     expect(accessUrl).toMatch(/\/q\//);
   });
 

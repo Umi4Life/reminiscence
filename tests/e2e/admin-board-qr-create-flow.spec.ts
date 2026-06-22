@@ -51,7 +51,7 @@ test.describe("admin board create → QR visible immediately (regression)", () =
     const boardName = "E2E QR Regression Board";
 
     // If there are multiple venues a select is shown; pick the first available.
-    const venueSelect = adminPage.locator('select').first();
+    const venueSelect = adminPage.locator("select").first();
     if (await venueSelect.isVisible()) {
       const options = await venueSelect.locator("option:not([disabled])").all();
       if (options.length > 0) {
@@ -63,9 +63,7 @@ test.describe("admin board create → QR visible immediately (regression)", () =
     // Fill name — slugs auto-derive from it.
     await adminPage.getByLabel("Name").fill(boardName);
     // Ensure auto-slug is non-empty before submitting.
-    await expect(
-      adminPage.locator('input[pattern="[-a-z0-9._~]+"]').first(),
-    ).not.toHaveValue("");
+    await expect(adminPage.locator('input[pattern="[-a-z0-9._~]+"]').first()).not.toHaveValue("");
 
     await adminPage.getByRole("button", { name: "Create board" }).click();
 
@@ -104,7 +102,7 @@ test.describe("admin board create → QR visible immediately (regression)", () =
 
     await expect(adminPage.getByRole("link", { name: "Download SVG" })).toBeVisible();
     await expect(adminPage.getByRole("button", { name: "Download PNG" })).toBeVisible();
-    await expect(adminPage.getByRole("button", { name: "Open QR in new tab" })).toBeVisible();
+    await expect(adminPage.getByRole("button", { name: "Open QR (print / save)" })).toBeVisible();
   });
 
   test("Rotate QR button is present and warns about REPLACING the existing QR (not first-time setup)", async () => {
@@ -113,17 +111,15 @@ test.describe("admin board create → QR visible immediately (regression)", () =
     // of the current code — proving the board already has an active QR.
     await adminPage.goto(boardDetailUrl);
 
-    const rotateBtn = adminPage.getByRole("button", { name: "Rotate QR link" });
+    // After creation with a credential, the button label is "Regenerate QR".
+    const rotateBtn = adminPage.getByRole("button", { name: "Regenerate QR" });
     await expect(rotateBtn).toBeVisible();
 
     // Trigger the confirm dialog.
     await rotateBtn.click();
 
     // Dialog copy must reference the current QR stopping / being replaced.
-    // "The current QR code will stop working immediately." (existing dialog text)
-    await expect(
-      adminPage.getByText(/current QR code will stop working|previous QR stops working/i),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(adminPage.getByText(/current QR.*stop working/i)).toBeVisible({ timeout: 5_000 });
 
     // Dismiss — no need to confirm.
     const cancelBtn = adminPage.getByRole("button", { name: /cancel/i });

@@ -39,7 +39,7 @@ function createFakeBoardAccessService(
       calls.push({ adminUserId, boardId });
       return rotateResult;
     },
-    async getActiveBoardCredential(_rbac, _boardId) {
+    async getActiveBoardCredential() {
       return activeResult;
     },
   };

@@ -39,7 +39,7 @@ function createFakeBoardAccessService(
         credential: fakeCredential,
       };
     },
-    async getActiveBoardCredential(_rbac, _boardId) {
+    async getActiveBoardCredential() {
       return { status: "active", credential: fakeCredential };
     },
   };

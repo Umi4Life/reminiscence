@@ -13,10 +13,12 @@
 
   let {
     board,
+    isNew = false,
     onBoardUpdated,
     onRefreshEvents,
   }: {
     board: BoardSummary;
+    isNew?: boolean;
     onBoardUpdated: (board: BoardSummary) => void;
     onRefreshEvents: () => void;
   } = $props();
@@ -87,26 +89,40 @@
     });
   }
 
-  function askRotate() {
-    requireConfirm({
-      message: "Rotate the QR access link? The current QR code will stop working immediately.",
-      confirmLabel: "Rotate link",
-      action: async () => {
-        busy = true;
-        error = null;
-        try {
-          const result = await rotateAccessCredential(board.id);
-          onBoardUpdated(result.board);
-          rotateResult = result;
-          onRefreshEvents();
-        } catch (e) {
-          error = e instanceof Error ? e.message : "Rotation failed.";
-        } finally {
-          busy = false;
-          pending = null;
-        }
-      },
-    });
+  // True once the user has generated or regenerated a QR in this page session.
+  let hasGeneratedQr = $derived(rotateResult !== null);
+
+  function askGenerateQr() {
+    if (hasGeneratedQr) {
+      requireConfirm({
+        message:
+          "Regenerate the QR code? The current QR will stop working immediately and existing printed codes will become invalid.",
+        confirmLabel: "Regenerate QR",
+        action: doRotate,
+      });
+    } else {
+      requireConfirm({
+        message: "Generate a QR code for this board? Visitors will scan it to join the queue.",
+        confirmLabel: "Generate QR",
+        action: doRotate,
+      });
+    }
+  }
+
+  async function doRotate() {
+    busy = true;
+    error = null;
+    try {
+      const result = await rotateAccessCredential(board.id);
+      onBoardUpdated(result.board);
+      rotateResult = result;
+      onRefreshEvents();
+    } catch (e) {
+      error = e instanceof Error ? e.message : "QR generation failed.";
+    } finally {
+      busy = false;
+      pending = null;
+    }
   }
 
   function copyPublicUrl() {
@@ -188,6 +204,51 @@
     <div class="success-box" role="status">{copyFeedback}</div>
   {/if}
 
+  {#if isNew && !rotateResult}
+    <div class="qr-callout">
+      <strong>Board created.</strong> Generate a QR code so visitors can scan to join the queue.
+    </div>
+  {/if}
+
+  {#if rotateResult}
+    <div class="qr-card">
+      <p class="qr-card-title">{board.name} — QR code</p>
+      <p class="qr-card-url">{rotateResult.credential.accessUrl}</p>
+      {#if rotateAccessCode}
+        <img
+          class="qr-img"
+          src="{API_BASE_URL}/qr/{rotateAccessCode}.svg"
+          alt="Queue access QR code for {board.name}"
+          width="200"
+          height="200"
+        />
+        <div class="qr-actions">
+          <button type="button" class="btn btn-secondary qr-btn" onclick={copyAccessUrl}>
+            Copy access URL
+          </button>
+          <button type="button" class="btn btn-secondary qr-btn" onclick={openQrInNewTab}>
+            Open QR (print / save)
+          </button>
+          <a
+            class="btn btn-secondary qr-btn"
+            href="{API_BASE_URL}/qr/{rotateAccessCode}.svg"
+            download="queue-access-qr.svg"
+          >
+            Download SVG
+          </a>
+          <button type="button" class="btn btn-secondary qr-btn" onclick={downloadPng}>
+            Download PNG
+          </button>
+        </div>
+        <p class="qr-help">Display or print this QR for visitors to scan at the venue.</p>
+      {/if}
+      <p class="qr-hint">
+        Token preview: <code>{rotateResult.credential.tokenPreview}</code>
+        <span class="one-time">(shown once — save or download above)</span>
+      </p>
+    </div>
+  {/if}
+
   <div class="controls">
     {#if board.status === "closed"}
       <button class="btn btn-primary" onclick={doOpen} disabled={busy}>
@@ -203,61 +264,18 @@
       Reset queue
     </button>
 
-    <button class="btn btn-secondary" onclick={askRotate} disabled={busy}>
-      Rotate QR link
+    <button
+      class="btn {isNew && !rotateResult ? 'btn-primary' : 'btn-secondary'}"
+      onclick={askGenerateQr}
+      disabled={busy}
+    >
+      {hasGeneratedQr ? "Regenerate QR" : "Generate QR"}
     </button>
 
     <button class="btn btn-secondary" onclick={copyPublicUrl} disabled={busy}>
       Copy public URL
     </button>
   </div>
-
-  {#if rotateResult}
-    <div class="rotate-result">
-      <p class="rotate-label">New access URL <span class="one-time">(shown once)</span></p>
-      <p class="rotate-url">{rotateResult.credential.accessUrl}</p>
-      {#if rotateAccessCode}
-        <img
-          class="rotate-qr"
-          src="{API_BASE_URL}/qr/{rotateAccessCode}.svg"
-          alt="Queue access QR"
-          width="200"
-          height="200"
-        />
-        <div class="rotate-qr-actions">
-          <button
-            type="button"
-            class="btn btn-secondary rotate-qr-btn"
-            onclick={openQrInNewTab}
-          >
-            Open QR in new tab
-          </button>
-          <a
-            class="btn btn-secondary rotate-qr-btn"
-            href="{API_BASE_URL}/qr/{rotateAccessCode}.svg"
-            download="queue-access-qr.svg"
-          >
-            Download SVG
-          </a>
-          <button
-            type="button"
-            class="btn btn-secondary rotate-qr-btn"
-            onclick={downloadPng}
-          >
-            Download PNG
-          </button>
-        </div>
-        <p class="rotate-qr-help">
-          Display or print this QR for visitors. The previous QR stops working
-          immediately.
-        </p>
-      {/if}
-      <p class="rotate-hint">Preview: <code>{rotateResult.credential.tokenPreview}</code></p>
-      <button class="btn btn-secondary copy-access-btn" onclick={copyAccessUrl}>
-        Copy access URL
-      </button>
-    </div>
-  {/if}
 </section>
 
 {#if pending}
@@ -276,6 +294,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+    margin-top: 0.75rem;
   }
 
   .btn {
@@ -320,35 +339,40 @@
     background: var(--color-border-strong);
   }
 
-  .rotate-result {
-    margin-top: 1rem;
+  .qr-callout {
+    background: var(--color-info-bg);
+    border: 1px solid var(--color-info-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-info-text);
+    font-size: 0.875rem;
+    padding: 0.625rem 0.875rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .qr-card {
+    margin-bottom: 0.75rem;
     background: var(--color-info-bg);
     border: 1px solid var(--color-info-border);
     border-radius: var(--radius-md);
     padding: 0.875rem 1rem;
   }
 
-  .rotate-label {
-    font-size: 0.8125rem;
+  .qr-card-title {
+    font-size: 0.875rem;
     font-weight: 600;
     color: var(--color-info-text);
     margin-bottom: 0.375rem;
   }
 
-  .one-time {
-    font-weight: 400;
-    color: var(--color-info-text-soft);
-  }
-
-  .rotate-url {
-    font-size: 0.875rem;
+  .qr-card-url {
+    font-size: 0.8125rem;
     color: var(--color-text);
     word-break: break-all;
     margin-bottom: 0.25rem;
     font-family: monospace;
   }
 
-  .rotate-qr {
+  .qr-img {
     display: block;
     max-width: 100%;
     height: auto;
@@ -359,35 +383,35 @@
     border-radius: var(--radius-sm);
   }
 
-  .rotate-qr-actions {
+  .qr-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin: 0.5rem 0;
+    margin: 0.625rem 0;
   }
 
-  .rotate-qr-help {
-    font-size: 0.8125rem;
-    color: var(--color-info-text-soft);
-    margin: 0 0 0.75rem;
-    text-align: center;
-  }
-
-  .rotate-qr-btn {
+  .qr-btn {
     font-size: 0.8125rem;
     padding: 0.375rem 0.75rem;
     text-decoration: none;
     display: inline-block;
   }
 
-  .rotate-hint {
+  .qr-help {
     font-size: 0.8125rem;
-    color: var(--color-text-muted);
-    margin-bottom: 0.75rem;
+    color: var(--color-info-text-soft);
+    margin: 0 0 0.5rem;
+    text-align: center;
   }
 
-  .copy-access-btn {
+  .qr-hint {
     font-size: 0.8125rem;
-    padding: 0.375rem 0.75rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0;
+  }
+
+  .one-time {
+    font-weight: 400;
+    color: var(--color-info-text-soft);
   }
 </style>

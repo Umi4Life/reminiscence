@@ -9,7 +9,8 @@ import type { PageLoad } from "./$types";
 
 export const ssr = false;
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, fetch, url }) => {
+  const isNew = url.searchParams.get("new") === "1";
   let board: BoardSummary | null = null;
   let events: PublicBoardEvent[] = [];
   let venueName: string | null = null;
@@ -38,5 +39,5 @@ export const load: PageLoad = async ({ params, fetch }) => {
     }
   }
 
-  return { board, events, venueName };
+  return { board, events, venueName, isNew };
 };

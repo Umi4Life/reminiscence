@@ -77,7 +77,7 @@
         name,
         description: description.trim() || null,
       });
-      await goto(`/boards/${result.board.id}`);
+      await goto(`/boards/${result.board.id}?new=1`);
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to create board.";
     } finally {

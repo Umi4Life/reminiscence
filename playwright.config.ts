@@ -69,19 +69,19 @@ export default defineConfig({
     {
       command: "bun run --cwd apps/api start",
       port: 3002,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: true,
       env: webServerEnv,
     },
     {
       command: "bun run --cwd apps/public-web dev --port 3000 --host 127.0.0.1",
       port: 3000,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: true,
       env: webServerEnv,
     },
     {
       command: "bun run --cwd apps/admin-web dev --port 3001 --host 127.0.0.1",
       port: 3001,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: true,
       env: webServerEnv,
     },
   ],

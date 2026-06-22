@@ -209,8 +209,13 @@ export async function updateBoard(
 export async function getBoard(
   boardId: string,
   fetchFn: FetchFn = globalThis.fetch,
-): Promise<{ board: BoardSummary }> {
-  return unwrap<{ board: BoardSummary }>(client(fetchFn).api.admin.boards({ boardId }).get());
+): Promise<{ board: BoardSummary; credential: RotatedBoardAccessCredential | null }> {
+  // ponytail: credential absent on main until PR#73 merges → normalize to null
+  const raw = await unwrap<{
+    board: BoardSummary;
+    credential?: RotatedBoardAccessCredential | null;
+  }>(client(fetchFn).api.admin.boards({ boardId }).get());
+  return { board: raw.board, credential: raw.credential ?? null };
 }
 
 export async function openBoard(

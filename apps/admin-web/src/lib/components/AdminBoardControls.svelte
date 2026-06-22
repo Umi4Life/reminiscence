@@ -6,6 +6,7 @@
     rotateAccessCredential,
     type BoardSummary,
     type RotateResult,
+    type RotatedBoardAccessCredential,
   } from "$lib/api";
   import ConfirmDialog from "./ConfirmDialog.svelte";
   import { copyTextToClipboard } from "$lib/copy-to-clipboard";
@@ -14,11 +15,13 @@
   let {
     board,
     isNew = false,
+    initialCredential = null,
     onBoardUpdated,
     onRefreshEvents,
   }: {
     board: BoardSummary;
     isNew?: boolean;
+    initialCredential?: RotatedBoardAccessCredential | null;
     onBoardUpdated: (board: BoardSummary) => void;
     onRefreshEvents: () => void;
   } = $props();
@@ -89,11 +92,12 @@
     });
   }
 
-  // True once the user has generated or regenerated a QR in this page session.
-  let hasGeneratedQr = $derived(rotateResult !== null);
+  // Active credential: prefer freshly rotated result, fall back to what was loaded with the page.
+  let activeCredential = $derived(rotateResult?.credential ?? initialCredential);
+  let hasCredential = $derived(activeCredential !== null);
 
   function askGenerateQr() {
-    if (hasGeneratedQr) {
+    if (hasCredential) {
       requireConfirm({
         message:
           "Regenerate the QR code? The current QR will stop working immediately and existing printed codes will become invalid.",
@@ -133,9 +137,9 @@
   }
 
   function copyAccessUrl() {
-    if (!rotateResult) return;
+    if (!activeCredential) return;
     showCopyFeedback(
-      copyTextToClipboard(rotateResult.credential.accessUrl)
+      copyTextToClipboard(activeCredential.accessUrl)
         ? "Access URL copied"
         : "Copy failed — select the URL above",
     );
@@ -156,9 +160,7 @@
   }
 
   let rotateAccessCode = $derived(
-    rotateResult
-      ? accessCodeFromUrl(rotateResult.credential.accessUrl)
-      : null,
+    activeCredential ? accessCodeFromUrl(activeCredential.accessUrl) : null,
   );
 
   function openQrInNewTab() {
@@ -204,21 +206,25 @@
     <div class="success-box" role="status">{copyFeedback}</div>
   {/if}
 
-  {#if isNew && !rotateResult}
+  {#if isNew}
     <div class="qr-callout">
-      <strong>Board created.</strong> Generate a QR code so visitors can scan to join the queue.
+      {#if activeCredential}
+        <strong>Board created.</strong> Your QR code is ready — share or print it below.
+      {:else}
+        <strong>Board created.</strong> Generate a QR code so visitors can scan to join the queue.
+      {/if}
     </div>
   {/if}
 
-  {#if rotateResult}
+  {#if activeCredential}
     <div class="qr-card">
       <p class="qr-card-title">{board.name} — QR code</p>
-      <p class="qr-card-url">{rotateResult.credential.accessUrl}</p>
+      <p class="qr-card-url">{activeCredential.accessUrl}</p>
       {#if rotateAccessCode}
         <img
           class="qr-img"
           src="{API_BASE_URL}/qr/{rotateAccessCode}.svg"
-          alt="Queue access QR code for {board.name}"
+          alt="Queue access QR"
           width="200"
           height="200"
         />
@@ -242,10 +248,12 @@
         </div>
         <p class="qr-help">Display or print this QR for visitors to scan at the venue.</p>
       {/if}
-      <p class="qr-hint">
-        Token preview: <code>{rotateResult.credential.tokenPreview}</code>
-        <span class="one-time">(shown once — save or download above)</span>
-      </p>
+      {#if rotateResult}
+        <p class="qr-hint">
+          Token preview: <code>{rotateResult.credential.tokenPreview}</code>
+          <span class="one-time">(shown once — save or download above)</span>
+        </p>
+      {/if}
     </div>
   {/if}
 
@@ -265,11 +273,11 @@
     </button>
 
     <button
-      class="btn {isNew && !rotateResult ? 'btn-primary' : 'btn-secondary'}"
+      class="btn {isNew && !activeCredential ? 'btn-primary' : 'btn-secondary'}"
       onclick={askGenerateQr}
       disabled={busy}
     >
-      {hasGeneratedQr ? "Regenerate QR" : "Generate QR"}
+      {hasCredential ? "Regenerate QR" : "Generate QR"}
     </button>
 
     <button class="btn btn-secondary" onclick={copyPublicUrl} disabled={busy}>

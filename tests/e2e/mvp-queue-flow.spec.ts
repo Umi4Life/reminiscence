@@ -47,10 +47,10 @@ test.describe("MVP queue flow", () => {
     await expect(closeBtn).toBeVisible();
   });
 
-  test("admin rotates QR link and reads access URL", async () => {
-    await adminPage.getByRole("button", { name: "Rotate QR link" }).click();
-    await adminPage.getByRole("button", { name: "Rotate link" }).click();
-    const rotateUrlEl = adminPage.locator(".rotate-url");
+  test("admin generates QR link and reads access URL", async () => {
+    await adminPage.getByRole("button", { name: "Generate QR" }).click();
+    await adminPage.getByRole("dialog").getByRole("button", { name: "Generate QR" }).click();
+    const rotateUrlEl = adminPage.locator(".qr-card-url");
     await expect(rotateUrlEl).toBeVisible();
     accessUrl = (await rotateUrlEl.textContent())?.trim() ?? "";
     expect(accessUrl).toMatch(/\/q\//);

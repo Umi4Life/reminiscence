@@ -52,7 +52,7 @@
 
     <main class="content">
       <AdminBoardEditForm {board} venueName={data.venueName} {onBoardUpdated} />
-      <AdminBoardControls {board} {onBoardUpdated} onRefreshEvents={refreshEvents} />
+      <AdminBoardControls {board} isNew={data.isNew ?? false} initialCredential={data.credential ?? null} {onBoardUpdated} onRefreshEvents={refreshEvents} />
       <AdminEventHistory {events} />
       <AdminBoardDangerZone {board} />
     </main>

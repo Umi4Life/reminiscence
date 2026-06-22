@@ -4,19 +4,23 @@ import {
   listVenues,
   type BoardSummary,
   type PublicBoardEvent,
+  type RotatedBoardAccessCredential,
 } from "$lib/api";
 import type { PageLoad } from "./$types";
 
 export const ssr = false;
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, fetch, url }) => {
+  const isNew = url.searchParams.get("new") === "1";
   let board: BoardSummary | null = null;
   let events: PublicBoardEvent[] = [];
   let venueName: string | null = null;
+  let credential: RotatedBoardAccessCredential | null = null;
 
   try {
     const result = await getBoard(params.boardId, fetch);
     board = result.board;
+    credential = result.credential;
   } catch {
     // 404 or API error — page renders not-found state
   }
@@ -38,5 +42,5 @@ export const load: PageLoad = async ({ params, fetch }) => {
     }
   }
 
-  return { board, events, venueName };
+  return { board, events, venueName, isNew, credential };
 };

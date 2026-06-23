@@ -3,7 +3,7 @@ name: queue-reminiscence
 #
 # All three app processes run from ONE image; the APP env var selects which
 # process starts (see docker-entrypoint.sh). The api container also runs DB
-# migrations (and the seed, if SEED_ADMIN_* are set) on start.
+# migrations on start. Seed only runs when RUN_SEED=true.
 #
 # Usage:
 #   cp .env.example .env && $EDITOR .env   # set secrets + seed admin

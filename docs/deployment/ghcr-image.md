@@ -9,8 +9,8 @@ host.
 
 > **One image, three apps.** The same image runs all three processes. The `APP`
 > environment variable (`api`, `admin-web`, or `public-web`) selects which one
-> starts; the `api` process also applies DB migrations on boot (and seeds the
-> first admin if `SEED_ADMIN_*` are set). See [`docker-entrypoint.sh`](../../docker-entrypoint.sh).
+> starts; the `api` process also applies DB migrations on boot. It seeds the
+> first admin only when `RUN_SEED=true`. See [`docker-entrypoint.sh`](../../docker-entrypoint.sh).
 
 ---
 
@@ -53,7 +53,7 @@ curl -O https://raw.githubusercontent.com/Umi4Life/reminiscence/main/docker-comp
 curl -O https://raw.githubusercontent.com/Umi4Life/reminiscence/main/.env.example
 mv .env.example .env
 
-# 2. Configure — set the three *_SECRET values and the seed admin
+# 2. Configure — set the three *_SECRET values, seed admin, and RUN_SEED=true for bootstrap
 $EDITOR .env
 
 # 3. Choose a tag and start the stack
@@ -63,17 +63,18 @@ docker compose -f docker-compose.ghcr.yml up -d
 
 This starts four containers:
 
-| Container     | Port | `APP`        | Description                       |
-| ------------- | ---- | ------------ | --------------------------------- |
-| `qr-postgres` | —    | —            | PostgreSQL 16 (internal)          |
-| `qr-api`      | 3002 | `api`        | Bun + Elysia API (+ migrate/seed) |
-| `qr-admin`    | 3001 | `admin-web`  | SvelteKit admin app               |
-| `qr-display`  | 3000 | `public-web` | SvelteKit public/display app      |
+| Container     | Port | `APP`        | Description                  |
+| ------------- | ---- | ------------ | ---------------------------- |
+| `qr-postgres` | —    | —            | PostgreSQL 16 (internal)     |
+| `qr-api`      | 3002 | `api`        | Bun + Elysia API (+ migrate) |
+| `qr-admin`    | 3001 | `admin-web`  | SvelteKit admin app          |
+| `qr-display`  | 3000 | `public-web` | SvelteKit public/display app |
 
-The `api` container runs migrations automatically and — because `.env.example`
-ships `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` — seeds the first admin and the
-demo org/venue/board on first boot. The seed is **idempotent**, so it is safe on
-every restart.
+The `api` container runs migrations automatically. To bootstrap the first admin
+and demo org/venue/board, set `RUN_SEED=true` together with
+`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` before starting the API container.
+The seed is **idempotent**, but leave `RUN_SEED=false` after bootstrap so deleted
+demo records are not recreated on every restart.
 
 Open <http://localhost:3001> and sign in with your seed admin credentials.
 
@@ -97,7 +98,7 @@ groups are:
 | **Origins (API CORS)**   | `PUBLIC_APP_URL`, `ADMIN_APP_URL`, `API_PUBLIC_BASE_URL`, `API_ADMIN_BASE_URL` |
 | **Secrets** (≥ 32 chars) | `SESSION_SECRET`, `TOKEN_HMAC_SECRET`, `RATE_LIMIT_HMAC_SECRET`                |
 | **Proxy**                | `TRUST_PROXY` (`true` behind a TLS-terminating proxy)                          |
-| **Seed (first boot)**    | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`                                      |
+| **Seed (bootstrap)**     | `RUN_SEED=true`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`                     |
 
 > Two API-URL families, by design: the **API** reads `API_PUBLIC_BASE_URL` /
 > `API_ADMIN_BASE_URL` (its CORS allowlist), while the **web apps** read

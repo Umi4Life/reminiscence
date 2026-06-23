@@ -4,7 +4,11 @@ set -e
 case "$APP" in
   api)
     bun run --cwd packages/db db:migrate
-    if [ -n "$SEED_ADMIN_EMAIL" ] && [ -n "$SEED_ADMIN_PASSWORD" ]; then
+    if [ "${RUN_SEED:-false}" = "true" ]; then
+      if [ -z "$SEED_ADMIN_EMAIL" ] || [ -z "$SEED_ADMIN_PASSWORD" ]; then
+        echo "Error: RUN_SEED=true requires SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD" >&2
+        exit 1
+      fi
       bun run --cwd packages/db db:seed
     fi
     exec bun run apps/api/src/index.ts

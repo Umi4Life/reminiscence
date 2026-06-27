@@ -11,7 +11,7 @@ import {
   queueEntries,
   venues,
 } from "@queue-reminiscence/db/schema";
-import { and, desc, eq, inArray, lt, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, lt, ne, or, gt, sql } from "drizzle-orm";
 
 import type { CreateBoardInput, PatchBoardInput } from "./board-input";
 import { patchChangesDisplayVersion } from "./board-input";
@@ -29,7 +29,13 @@ import {
   type AdminMembershipContext,
   type AdminRbacContext,
 } from "../auth/rbac";
-import { type Page, type PageRequest, toPage } from "../http/pagination";
+import {
+  encodeNameCursor,
+  type ListOrgsRequest,
+  type Page,
+  type PageRequest,
+  toPage,
+} from "../http/pagination";
 
 export interface OrganizationSummary {
   id: string;
@@ -72,7 +78,10 @@ export interface BoardSummary {
 }
 
 export interface BoardManagementService {
-  listOrganizations(rbac: AdminRbacContext, page: PageRequest): Promise<Page<OrganizationSummary>>;
+  listOrganizations(
+    rbac: AdminRbacContext,
+    query: ListOrgsRequest,
+  ): Promise<Page<OrganizationSummary>>;
   listVenues(rbac: AdminRbacContext, page: PageRequest): Promise<Page<VenueSummary>>;
   listBoards(rbac: AdminRbacContext, page: PageRequest): Promise<Page<BoardSummary>>;
   getBoard(rbac: AdminRbacContext, boardId: string): Promise<BoardSummary | null>;
@@ -208,7 +217,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
   return {
     async listOrganizations(
       rbac: AdminRbacContext,
-      page: PageRequest,
+      query: ListOrgsRequest,
     ): Promise<Page<OrganizationSummary>> {
       const conditions = [];
 
@@ -218,8 +227,44 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         conditions.push(inArray(organizations.id, organizationIds));
       }
 
-      if (page.cursor) {
-        const { createdAt: curAt, id: curId } = page.cursor;
+      if (query.search) {
+        const pattern = `%${query.search}%`;
+        conditions.push(
+          or(ilike(organizations.name, pattern), ilike(organizations.slug, pattern))!,
+        );
+      }
+
+      if (query.sort === "name_asc") {
+        if (query.cursor && query.cursor.sort === "name_asc") {
+          const { name: curName, id: curId } = query.cursor;
+          conditions.push(
+            or(
+              gt(sql`lower(${organizations.name})`, curName.toLowerCase()),
+              and(
+                sql`lower(${organizations.name}) = ${curName.toLowerCase()}`,
+                gt(organizations.id, curId),
+              ),
+            )!,
+          );
+        }
+        const rows = await db
+          .select()
+          .from(organizations)
+          .where(conditions.length > 0 ? and(...conditions) : undefined)
+          .orderBy(sql`lower(${organizations.name})`, asc(organizations.id))
+          .limit(query.limit + 1);
+
+        if (rows.length <= query.limit) {
+          return { items: rows.map(toOrganizationSummary), nextCursor: null };
+        }
+        const items = rows.slice(0, query.limit).map(toOrganizationSummary);
+        const last = items[items.length - 1]!;
+        return { items, nextCursor: encodeNameCursor(last.name, last.id) };
+      }
+
+      // Default sort: createdAt_desc
+      if (query.cursor && query.cursor.sort === "createdAt_desc") {
+        const { createdAt: curAt, id: curId } = query.cursor;
         conditions.push(
           or(
             lt(organizations.createdAt, curAt),
@@ -233,9 +278,9 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         .from(organizations)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(organizations.createdAt), desc(organizations.id))
-        .limit(page.limit + 1);
+        .limit(query.limit + 1);
 
-      return toPage(rows.map(toOrganizationSummary), page.limit);
+      return toPage(rows.map(toOrganizationSummary), query.limit);
     },
 
     async listVenues(rbac: AdminRbacContext, page: PageRequest): Promise<Page<VenueSummary>> {

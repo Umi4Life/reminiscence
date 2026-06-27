@@ -35,6 +35,7 @@ export const apiModels = new Elysia({ name: "api-models" }).model({
 
   // Path params & query strings
   PaginationQuery: schemas.PaginationQuery,
+  OrgListQuery: schemas.OrgListQuery,
   OrgIdParams: schemas.OrgIdParams,
   MembershipIdParams: schemas.MembershipIdParams,
   VenueIdParams: schemas.VenueIdParams,

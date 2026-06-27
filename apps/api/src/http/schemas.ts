@@ -272,6 +272,31 @@ export const PaginationQuery = t.Object({
   ),
 });
 
+export const OrgListQuery = t.Object({
+  limit: t.Optional(
+    t.Numeric({
+      minimum: 1,
+      maximum: 100,
+      description: "Maximum items to return (1–100, default 20).",
+    }),
+  ),
+  cursor: t.Optional(
+    t.String({
+      description: "Opaque pagination cursor from the previous response's nextCursor.",
+    }),
+  ),
+  search: t.Optional(
+    t.String({
+      description: "Case-insensitive substring match against organization name or slug.",
+    }),
+  ),
+  sort: t.Optional(
+    t.Union([t.Literal("createdAt_desc"), t.Literal("name_asc")], {
+      description: "Sort order. createdAt_desc (default) or name_asc.",
+    }),
+  ),
+});
+
 export const EventsQuery = t.Object({
   limit: t.Optional(
     t.Numeric({ minimum: 1, description: "Maximum events to return (1–100, default 20)." }),

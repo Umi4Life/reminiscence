@@ -8,7 +8,7 @@ import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { toAdminRbacContext } from "../auth/rbac";
 import { conflictError, forbiddenError, notFoundError, validationError } from "../http/errors";
-import { parsePageRequest } from "../http/pagination";
+import { parseOrgsRequest } from "../http/pagination";
 import { apiSuccess } from "../http/response";
 import { apiModels } from "../http/models";
 import { API_TAGS } from "../http/openapi-config";
@@ -41,21 +41,26 @@ export function adminOrganizationsRoutes(deps: AdminOrganizationsRouteDeps) {
       "/api/admin/organizations",
       async ({ request, query }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
-        const page = parsePageRequest(query);
+        const orgsQuery = parseOrgsRequest(query);
         const result = await deps.boardManagementService.listOrganizations(
           toAdminRbacContext(session),
-          page,
+          orgsQuery,
         );
 
-        return apiSuccess({ organizations: result.items, nextCursor: result.nextCursor });
+        return apiSuccess({
+          organizations: result.items,
+          nextCursor: result.nextCursor,
+          loaded: result.items.length,
+        });
       },
       {
-        query: "PaginationQuery",
+        query: "OrgListQuery",
         response: {
           200: success(
             t.Object({
               organizations: t.Array(OrganizationSummary),
               nextCursor: t.Nullable(t.String()),
+              loaded: t.Number(),
             }),
           ),
           401: "ErrorResponse",

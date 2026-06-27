@@ -8,7 +8,13 @@ import type {
   UpdateBoardResult,
   VenueSummary,
 } from "../src/admin/board-management";
-import { toPage, type Page, type PageRequest } from "../src/http/pagination";
+import {
+  encodeNameCursor,
+  toPage,
+  type ListOrgsRequest,
+  type Page,
+  type PageRequest,
+} from "../src/http/pagination";
 import type { BoardAccessService } from "../src/access/board-access";
 import type { CreateBoardInput, PatchBoardInput } from "../src/admin/board-input";
 import { patchChangesDisplayVersion } from "../src/admin/board-input";
@@ -279,13 +285,13 @@ export function createFakeBoardManagementHarness(
   const service: BoardManagementService & { boards: BoardSummary[] } = {
     boards: harness.boards,
 
-    async listOrganizations(rbac: AdminRbacContext, page: PageRequest) {
+    async listOrganizations(rbac: AdminRbacContext, query: ListOrgsRequest) {
       const visible = rbac.isSuperAdmin
         ? organizationsFixture.slice()
         : organizationsFixture.filter((organization) =>
             rbac.memberships.some((m) => m.organizationId === organization.id),
           );
-      return applyPage(visible, page);
+      return applyOrgsPage(visible, query);
     },
 
     async listVenues(rbac: AdminRbacContext, page: PageRequest) {
@@ -710,6 +716,55 @@ function applyPage<T extends { createdAt: Date; id: string }>(
       })
     : sorted;
   return toPage(filtered, page.limit);
+}
+
+function applyOrgsPage(
+  items: OrganizationSummary[],
+  query: ListOrgsRequest,
+): Page<OrganizationSummary> {
+  let list = query.search
+    ? items.filter(
+        (o) =>
+          o.name.toLowerCase().includes(query.search!.toLowerCase()) ||
+          o.slug.toLowerCase().includes(query.search!.toLowerCase()),
+      )
+    : items.slice();
+
+  if (query.sort === "name_asc") {
+    list = list.sort((a, b) => {
+      const nc = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+      return nc !== 0 ? nc : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
+
+    if (query.cursor && query.cursor.sort === "name_asc") {
+      const { name: curName, id: curId } = query.cursor;
+      list = list.filter((o) => {
+        const nc = o.name.toLowerCase().localeCompare(curName.toLowerCase());
+        return nc > 0 || (nc === 0 && o.id > curId);
+      });
+    }
+
+    if (list.length <= query.limit) return { items: list, nextCursor: null };
+    const page = list.slice(0, query.limit);
+    const last = page[page.length - 1]!;
+    return { items: page, nextCursor: encodeNameCursor(last.name, last.id) };
+  }
+
+  // createdAt_desc (default)
+  list = list.sort((a, b) => {
+    const timeDiff = b.createdAt.getTime() - a.createdAt.getTime();
+    return timeDiff !== 0 ? timeDiff : b.id < a.id ? -1 : b.id > a.id ? 1 : 0;
+  });
+
+  if (query.cursor && query.cursor.sort === "createdAt_desc") {
+    const { createdAt: curAt, id: curId } = query.cursor;
+    list = list.filter((o) => {
+      const itemAt = o.createdAt.getTime();
+      return itemAt < curAt.getTime() || (itemAt === curAt.getTime() && o.id < curId);
+    });
+  }
+
+  return toPage(list, query.limit);
 }
 
 export const sessionCookie = "qr_admin_session=test-session-token";

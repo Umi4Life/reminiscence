@@ -3,15 +3,51 @@
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
+
   let organizations = $state<OrganizationSummary[]>(data.organizations);
   let nextCursor = $state<string | null>(data.nextCursor);
   let loadingMore = $state(false);
+  let search = $state("");
+  let sort = $state("createdAt_desc");
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  let isSuperAdmin = $derived(data.session?.admin.isSuperAdmin ?? false);
+
+  async function reload(searchVal: string, sortVal: string) {
+    try {
+      const result = await listOrganizations(undefined, {
+        search: searchVal || undefined,
+        sort: sortVal,
+      });
+      organizations = result.organizations;
+      nextCursor = result.nextCursor;
+    } catch {
+      // keep existing list
+    }
+  }
+
+  function onSearchInput(e: Event) {
+    const val = (e.target as HTMLInputElement).value;
+    search = val;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => reload(val, sort), 300);
+  }
+
+  function onSortChange(e: Event) {
+    const val = (e.target as HTMLSelectElement).value;
+    sort = val;
+    reload(search, val);
+  }
 
   async function loadMore() {
     if (!nextCursor || loadingMore) return;
     loadingMore = true;
     try {
-      const result = await listOrganizations(undefined, { cursor: nextCursor });
+      const result = await listOrganizations(undefined, {
+        cursor: nextCursor,
+        search: search || undefined,
+        sort,
+      });
       organizations = [...organizations, ...result.organizations];
       nextCursor = result.nextCursor;
     } catch {
@@ -28,18 +64,48 @@
       <div>
         <a href="/" class="back-link">← Dashboard</a>
         <h1 class="page-title">Organizations</h1>
+        {#if isSuperAdmin}
+          <p class="super-badge" data-testid="super-admin-badge">Super admin · global organization access</p>
+        {/if}
       </div>
       <a href="/organizations/new" class="new-btn">New organization</a>
     </div>
   </header>
 
   <main class="content">
+    <div class="controls">
+      <input
+        class="search-input"
+        type="search"
+        placeholder="Search by name or slug…"
+        value={search}
+        oninput={onSearchInput}
+        data-testid="org-search-input"
+        aria-label="Search organizations"
+      />
+      <select
+        class="sort-select"
+        value={sort}
+        onchange={onSortChange}
+        data-testid="org-sort-select"
+        aria-label="Sort organizations"
+      >
+        <option value="createdAt_desc">Newest first</option>
+        <option value="name_asc">Name A–Z</option>
+      </select>
+    </div>
+
     {#if organizations.length === 0}
       <div class="empty-state">
-        <p class="empty-title">No organizations yet</p>
-        <p class="empty-desc">Create your first organization to get started.</p>
+        <p class="empty-title">{search ? "No organizations match your search" : "No organizations yet"}</p>
+        <p class="empty-desc">
+          {search ? "Try a different name or slug." : "Create your first organization to get started."}
+        </p>
       </div>
     {:else}
+      <p class="count-hint" data-testid="org-count-hint">
+        {nextCursor ? `Loaded ${organizations.length} organizations` : `Showing ${organizations.length} organization${organizations.length === 1 ? "" : "s"}`}
+      </p>
       <div class="org-list">
         {#each organizations as org (org.id)}
           <a href="/organizations/{org.id}" class="org-row">
@@ -77,7 +143,7 @@
     max-width: 720px;
     margin: 0 auto;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
   }
@@ -101,6 +167,14 @@
     color: var(--color-text);
   }
 
+  .super-badge {
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    letter-spacing: 0.01em;
+  }
+
   .new-btn {
     background: var(--color-primary);
     color: var(--color-on-primary);
@@ -111,6 +185,8 @@
     font-weight: 500;
     text-decoration: none;
     white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1.5rem;
   }
 
   .new-btn:hover {
@@ -122,6 +198,52 @@
     max-width: 720px;
     margin: 0 auto;
     padding: 1.5rem 1rem;
+  }
+
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.4375rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-text);
+    min-width: 12rem;
+  }
+
+  .search-input:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px;
+  }
+
+  .sort-select {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.4375rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-text);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .sort-select:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px;
+  }
+
+  .count-hint {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0.75rem;
   }
 
   .empty-state {

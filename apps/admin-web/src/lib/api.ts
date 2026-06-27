@@ -104,8 +104,11 @@ export async function listOrganizations(
   fetchFn: FetchFn = globalThis.fetch,
   opts?: ListOptions,
 ): Promise<{ organizations: OrganizationSummary[]; nextCursor: string | null }> {
+  const hasOpts =
+    opts !== undefined &&
+    Object.values(opts).some((v) => v !== undefined && v !== "" && v !== null);
   return unwrap<{ organizations: OrganizationSummary[]; nextCursor: string | null }>(
-    opts?.cursor !== undefined || opts?.limit !== undefined
+    hasOpts
       ? client(fetchFn).api.admin.organizations.get({ query: opts })
       : client(fetchFn).api.admin.organizations.get(),
   );
@@ -307,7 +310,7 @@ export async function getPublicBoardEvents(
   );
 }
 
-export type ListOptions = { cursor?: string; limit?: number };
+export type ListOptions = { cursor?: string; limit?: number; search?: string; sort?: string };
 
 export interface CreateAdminInput {
   email: string;

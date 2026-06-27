@@ -20,13 +20,14 @@ export const load: PageLoad = async ({ fetch, parent }) => {
   let venues: VenueSummary[] = [];
 
   try {
-    organizations = (await listOrganizations(fetch)).organizations;
+    // ponytail: limit:100 for org/venue selectors; add listAll helper if portals exceed 100
+    organizations = (await listOrganizations(fetch, { limit: 100 })).organizations;
   } catch {
     // organizations stays empty
   }
 
   try {
-    venues = (await listVenues(fetch)).venues;
+    venues = (await listVenues(fetch, { limit: 100 })).venues;
   } catch {
     // venues stays empty
   }

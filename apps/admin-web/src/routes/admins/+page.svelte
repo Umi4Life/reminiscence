@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { listAdmins, type AdminUserSummary } from "$lib/api";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -10,6 +11,23 @@
       ) ??
         false),
   );
+  let admins = $state<AdminUserSummary[]>(data.admins);
+  let nextCursor = $state<string | null>(data.nextCursor);
+  let loadingMore = $state(false);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    loadingMore = true;
+    try {
+      const result = await listAdmins(undefined, { cursor: nextCursor });
+      admins = [...admins, ...result.admins];
+      nextCursor = result.nextCursor;
+    } catch {
+      // keep existing list
+    } finally {
+      loadingMore = false;
+    }
+  }
 </script>
 
 <div class="page">
@@ -30,7 +48,7 @@
       <div class="card">
         <p class="error">You do not have permission to manage admins.</p>
       </div>
-    {:else if data.admins.length === 0}
+    {:else if admins.length === 0}
       <div class="empty-state">
         <p class="empty-title">No admins yet</p>
         <p class="empty-desc">Create your first admin to get started.</p>
@@ -38,7 +56,7 @@
       </div>
     {:else}
       <div class="admin-list">
-        {#each data.admins as admin (admin.id)}
+        {#each admins as admin (admin.id)}
           <a href="/admins/{admin.id}" class="admin-row">
             <div class="admin-info">
               <span class="admin-name">{admin.displayName}</span>
@@ -51,6 +69,13 @@
           </a>
         {/each}
       </div>
+      {#if nextCursor}
+        <div class="load-more">
+          <button onclick={loadMore} disabled={loadingMore} class="load-more-btn">
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
+        </div>
+      {/if}
     {/if}
   </main>
 </div>
@@ -146,4 +171,20 @@
     cursor: pointer;
   }
   .btn-primary:hover { background: var(--color-primary-hover); text-decoration: none; }
+  .load-more {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+  }
+  .load-more-btn {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    color: var(--color-text);
+    cursor: pointer;
+  }
+  .load-more-btn:hover:not(:disabled) { background: var(--color-bg); }
+  .load-more-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

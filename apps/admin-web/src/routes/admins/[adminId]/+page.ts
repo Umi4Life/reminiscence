@@ -29,15 +29,14 @@ export const load: PageLoad = async ({ fetch, params, parent }) => {
     }
 
     try {
-      const orgsResult = await listOrganizations(fetch);
-      organizations = orgsResult.organizations;
+      // ponytail: limit:100 for org/venue selectors; add listAll helper if portals exceed 100
+      organizations = (await listOrganizations(fetch, { limit: 100 })).organizations;
     } catch {
       // orgs stays empty
     }
 
     try {
-      const venuesResult = await listVenues(fetch);
-      venues = venuesResult.venues;
+      venues = (await listVenues(fetch, { limit: 100 })).venues;
     } catch {
       // venues stays empty
     }
@@ -47,20 +46,21 @@ export const load: PageLoad = async ({ fetch, params, parent }) => {
     // Org-owners and venue-managers: the admin/org/venue endpoints are already
     // RBAC-scoped server-side, so no client-side filtering is needed.
     try {
-      const result = await listAdmins(fetch);
+      // ponytail: limit:100; if the admin being viewed is beyond position 100, they won't be found
+      const result = await listAdmins(fetch, { limit: 100 });
       admin = result.admins.find((a) => a.id === params.adminId) ?? null;
     } catch {
       // admin stays null
     }
 
     try {
-      organizations = (await listOrganizations(fetch)).organizations;
+      organizations = (await listOrganizations(fetch, { limit: 100 })).organizations;
     } catch {
       // orgs stays empty
     }
 
     try {
-      venues = (await listVenues(fetch)).venues;
+      venues = (await listVenues(fetch, { limit: 100 })).venues;
     } catch {
       // venues stays empty
     }

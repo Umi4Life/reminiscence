@@ -102,9 +102,12 @@ async function unwrap<T>(call: Promise<TreatyResult>): Promise<T> {
 
 export async function listOrganizations(
   fetchFn: FetchFn = globalThis.fetch,
-): Promise<{ organizations: OrganizationSummary[] }> {
-  return unwrap<{ organizations: OrganizationSummary[] }>(
-    client(fetchFn).api.admin.organizations.get(),
+  opts?: ListOptions,
+): Promise<{ organizations: OrganizationSummary[]; nextCursor: string | null }> {
+  return unwrap<{ organizations: OrganizationSummary[]; nextCursor: string | null }>(
+    opts?.cursor !== undefined || opts?.limit !== undefined
+      ? client(fetchFn).api.admin.organizations.get({ query: opts })
+      : client(fetchFn).api.admin.organizations.get(),
   );
 }
 
@@ -152,14 +155,24 @@ export async function getMe(fetchFn: FetchFn = globalThis.fetch): Promise<MeData
 
 export async function listBoards(
   fetchFn: FetchFn = globalThis.fetch,
-): Promise<{ boards: BoardSummary[] }> {
-  return unwrap<{ boards: BoardSummary[] }>(client(fetchFn).api.admin.boards.get());
+  opts?: ListOptions,
+): Promise<{ boards: BoardSummary[]; nextCursor: string | null }> {
+  return unwrap<{ boards: BoardSummary[]; nextCursor: string | null }>(
+    opts?.cursor !== undefined || opts?.limit !== undefined
+      ? client(fetchFn).api.admin.boards.get({ query: opts })
+      : client(fetchFn).api.admin.boards.get(),
+  );
 }
 
 export async function listVenues(
   fetchFn: FetchFn = globalThis.fetch,
-): Promise<{ venues: VenueSummary[] }> {
-  return unwrap<{ venues: VenueSummary[] }>(client(fetchFn).api.admin.venues.get());
+  opts?: ListOptions,
+): Promise<{ venues: VenueSummary[]; nextCursor: string | null }> {
+  return unwrap<{ venues: VenueSummary[]; nextCursor: string | null }>(
+    opts?.cursor !== undefined || opts?.limit !== undefined
+      ? client(fetchFn).api.admin.venues.get({ query: opts })
+      : client(fetchFn).api.admin.venues.get(),
+  );
 }
 
 export async function createVenue(
@@ -294,6 +307,8 @@ export async function getPublicBoardEvents(
   );
 }
 
+export type ListOptions = { cursor?: string; limit?: number };
+
 export interface CreateAdminInput {
   email: string;
   displayName: string;
@@ -320,8 +335,13 @@ export interface AssignMembershipInput {
 
 export async function listAdmins(
   fetchFn: FetchFn = globalThis.fetch,
-): Promise<{ admins: AdminUserSummary[] }> {
-  return unwrap<{ admins: AdminUserSummary[] }>(client(fetchFn).api.admin.admins.get());
+  opts?: ListOptions,
+): Promise<{ admins: AdminUserSummary[]; nextCursor: string | null }> {
+  return unwrap<{ admins: AdminUserSummary[]; nextCursor: string | null }>(
+    opts?.cursor !== undefined || opts?.limit !== undefined
+      ? client(fetchFn).api.admin.admins.get({ query: opts })
+      : client(fetchFn).api.admin.admins.get(),
+  );
 }
 
 export async function createAdmin(

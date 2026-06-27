@@ -1,8 +1,25 @@
 <script lang="ts">
+  import { listOrganizations, type OrganizationSummary } from "$lib/api";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
-  let organizations = $derived(data.organizations);
+  let organizations = $state<OrganizationSummary[]>(data.organizations);
+  let nextCursor = $state<string | null>(data.nextCursor);
+  let loadingMore = $state(false);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    loadingMore = true;
+    try {
+      const result = await listOrganizations(undefined, { cursor: nextCursor });
+      organizations = [...organizations, ...result.organizations];
+      nextCursor = result.nextCursor;
+    } catch {
+      // keep existing list
+    } finally {
+      loadingMore = false;
+    }
+  }
 </script>
 
 <div class="page">
@@ -34,6 +51,13 @@
           </a>
         {/each}
       </div>
+      {#if nextCursor}
+        <div class="load-more">
+          <button onclick={loadMore} disabled={loadingMore} class="load-more-btn">
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
+        </div>
+      {/if}
     {/if}
   </main>
 </div>
@@ -170,5 +194,30 @@
     color: var(--color-text-faint);
     font-size: 1.125rem;
     flex-shrink: 0;
+  }
+
+  .load-more {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .load-more-btn {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  .load-more-btn:hover:not(:disabled) {
+    background: var(--color-bg);
+  }
+
+  .load-more-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 </style>

@@ -7,7 +7,8 @@ export const load: PageLoad = async ({ fetch }) => {
   let organizations: OrganizationSummary[] = [];
 
   try {
-    const result = await listOrganizations(fetch);
+    // ponytail: limit:100 for org selector; add listAll helper if portals exceed 100 orgs
+    const result = await listOrganizations(fetch, { limit: 100 });
     organizations = result.organizations;
   } catch {
     // stays empty; form shows error state

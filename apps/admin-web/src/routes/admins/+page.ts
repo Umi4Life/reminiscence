@@ -9,6 +9,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
   requireSession(session);
 
   let admins: AdminUserSummary[] = [];
+  let nextCursor: string | null = null;
 
   const canManage =
     session?.admin.isSuperAdmin ||
@@ -18,10 +19,11 @@ export const load: PageLoad = async ({ fetch, parent }) => {
     try {
       const result = await listAdmins(fetch);
       admins = result.admins;
+      nextCursor = result.nextCursor;
     } catch {
       // admins stays empty; page shows error state
     }
   }
 
-  return { admins };
+  return { admins, nextCursor };
 };

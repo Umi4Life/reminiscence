@@ -10,6 +10,7 @@ export const ssr = false;
 
 export const load: PageLoad = async ({ fetch }) => {
   let boards: BoardSummary[] = [];
+  let boardsNextCursor: string | null = null;
   let organizations: OrganizationSummary[] = [];
 
   try {
@@ -18,10 +19,11 @@ export const load: PageLoad = async ({ fetch }) => {
       listOrganizations(fetch),
     ]);
     boards = boardsResult.boards;
+    boardsNextCursor = boardsResult.nextCursor;
     organizations = organizationsResult.organizations;
   } catch {
     // boards stays empty on error; page shows error state
   }
 
-  return { boards, organizations };
+  return { boards, boardsNextCursor, organizations };
 };

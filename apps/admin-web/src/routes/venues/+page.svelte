@@ -1,7 +1,25 @@
 <script lang="ts">
+  import { listVenues, type VenueSummary } from "$lib/api";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
+  let venues = $state<VenueSummary[]>(data.venues);
+  let nextCursor = $state<string | null>(data.nextCursor);
+  let loadingMore = $state(false);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    loadingMore = true;
+    try {
+      const result = await listVenues(undefined, { cursor: nextCursor });
+      venues = [...venues, ...result.venues];
+      nextCursor = result.nextCursor;
+    } catch {
+      // keep existing list
+    } finally {
+      loadingMore = false;
+    }
+  }
 </script>
 
 <div class="page">
@@ -16,7 +34,7 @@
   </header>
 
   <main class="content">
-    {#if data.venues.length === 0}
+    {#if venues.length === 0}
       <div class="empty-state">
         <p class="empty-title">No venues yet</p>
         <p class="empty-desc">Create your first venue to get started.</p>
@@ -24,7 +42,7 @@
       </div>
     {:else}
       <div class="venue-list">
-        {#each data.venues as venue (venue.id)}
+        {#each venues as venue (venue.id)}
           <a href="/venues/{venue.id}" class="venue-row">
             <div class="venue-info">
               <span class="venue-name">{venue.name}</span>
@@ -34,6 +52,13 @@
           </a>
         {/each}
       </div>
+      {#if nextCursor}
+        <div class="load-more">
+          <button onclick={loadMore} disabled={loadingMore} class="load-more-btn">
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
+        </div>
+      {/if}
     {/if}
   </main>
 </div>
@@ -174,5 +199,30 @@
   .btn-primary:hover {
     background: var(--color-primary-hover);
     text-decoration: none;
+  }
+
+  .load-more {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .load-more-btn {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  .load-more-btn:hover:not(:disabled) {
+    background: var(--color-bg);
+  }
+
+  .load-more-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 </style>

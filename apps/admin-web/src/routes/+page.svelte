@@ -1,11 +1,13 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { logout, getPublicBoard, type BoardSummary } from "$lib/api";
+  import { logout, listBoards, getPublicBoard, type BoardSummary } from "$lib/api";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
-  let boards = $derived(data.boards);
+  let boards = $state<BoardSummary[]>(data.boards);
+  let boardsNextCursor = $state<string | null>(data.boardsNextCursor);
+  let loadingMoreBoards = $state(false);
   let isOrgOwner = $derived(
     data.session?.memberships.some((m) => m.role === "org_owner") ?? false,
   );
@@ -26,6 +28,28 @@
       }
     }
   });
+
+  async function loadMoreBoards() {
+    if (!boardsNextCursor || loadingMoreBoards) return;
+    loadingMoreBoards = true;
+    try {
+      const result = await listBoards(undefined, { cursor: boardsNextCursor });
+      boards = [...boards, ...result.boards];
+      boardsNextCursor = result.nextCursor;
+      for (const board of result.boards) {
+        if (!(board.id in queueCounts)) {
+          queueCounts[board.id] = null;
+          getPublicBoard(board.publicSlug).then((r) => {
+            if (r) queueCounts[board.id] = r.board.queue.length;
+          });
+        }
+      }
+    } catch {
+      // keep existing list
+    } finally {
+      loadingMoreBoards = false;
+    }
+  }
 
   async function doLogout() {
     logoutBusy = true;
@@ -111,6 +135,13 @@
           </a>
         {/each}
       </div>
+      {#if boardsNextCursor}
+        <div class="load-more">
+          <button onclick={loadMoreBoards} disabled={loadingMoreBoards} class="load-more-btn">
+            {loadingMoreBoards ? "Loading…" : "Load more"}
+          </button>
+        </div>
+      {/if}
     {/if}
   </main>
 </div>
@@ -335,5 +366,30 @@
   .arrow {
     color: var(--color-text-faint);
     font-size: 1.125rem;
+  }
+
+  .load-more {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .load-more-btn {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  .load-more-btn:hover:not(:disabled) {
+    background: var(--color-bg);
+  }
+
+  .load-more-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 </style>

@@ -89,7 +89,7 @@ describe("admin board read routes", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, data: { boards: [] } });
+    expect(await response.json()).toEqual({ ok: true, data: { boards: [], nextCursor: null } });
   });
 
   test("board detail returns board and credential for accessible board", async () => {

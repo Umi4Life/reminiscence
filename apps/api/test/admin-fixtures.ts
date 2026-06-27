@@ -8,6 +8,7 @@ import type {
   UpdateBoardResult,
   VenueSummary,
 } from "../src/admin/board-management";
+import { toPage, type Page, type PageRequest } from "../src/http/pagination";
 import type { BoardAccessService } from "../src/access/board-access";
 import type { CreateBoardInput, PatchBoardInput } from "../src/admin/board-input";
 import { patchChangesDisplayVersion } from "../src/admin/board-input";
@@ -278,46 +279,40 @@ export function createFakeBoardManagementHarness(
   const service: BoardManagementService & { boards: BoardSummary[] } = {
     boards: harness.boards,
 
-    async listOrganizations(rbac: AdminRbacContext) {
-      if (rbac.isSuperAdmin) {
-        return organizationsFixture.slice();
-      }
-      const organizationIds = new Set(
-        rbac.memberships.map((membership) => membership.organizationId),
-      );
-      return organizationsFixture.filter((organization) => organizationIds.has(organization.id));
+    async listOrganizations(rbac: AdminRbacContext, page: PageRequest) {
+      const visible = rbac.isSuperAdmin
+        ? organizationsFixture.slice()
+        : organizationsFixture.filter((organization) =>
+            rbac.memberships.some((m) => m.organizationId === organization.id),
+          );
+      return applyPage(visible, page);
     },
 
-    async listVenues(rbac: AdminRbacContext) {
-      if (rbac.isSuperAdmin) {
-        return venuesFixture.slice();
-      }
+    async listVenues(rbac: AdminRbacContext, page: PageRequest) {
       const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
-      return venuesFixture.filter((venue) => {
-        if (canReadVenue(rbac, { organizationId: venue.organizationId, venueId: venue.id })) {
-          return true;
-        }
-        return assignedVenueIds.has(venue.id);
-      });
+      const visible = rbac.isSuperAdmin
+        ? venuesFixture.slice()
+        : venuesFixture.filter(
+            (venue) =>
+              canReadVenue(rbac, { organizationId: venue.organizationId, venueId: venue.id }) ||
+              assignedVenueIds.has(venue.id),
+          );
+      return applyPage(visible, page);
     },
 
-    async listBoards(rbac: AdminRbacContext) {
-      if (rbac.isSuperAdmin) {
-        return harness.boards.slice();
-      }
+    async listBoards(rbac: AdminRbacContext, page: PageRequest) {
       const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
-      return harness.boards.filter((board) => {
-        if (
-          canOperateBoard(rbac, {
-            boardId: board.id,
-            organizationId: board.organizationId,
-            venueId: board.venueId,
-          })
-        ) {
-          return true;
-        }
-        return assignedVenueIds.has(board.venueId);
-      });
+      const visible = rbac.isSuperAdmin
+        ? harness.boards.slice()
+        : harness.boards.filter(
+            (board) =>
+              canOperateBoard(rbac, {
+                boardId: board.id,
+                organizationId: board.organizationId,
+                venueId: board.venueId,
+              }) || assignedVenueIds.has(board.venueId),
+          );
+      return applyPage(visible, page);
     },
 
     async getBoard(rbac: AdminRbacContext, boardId) {
@@ -564,11 +559,13 @@ export function createFakeVenueManagementService(
   const store: VenueSummary[] = initialVenues.map((v) => ({ ...v }));
 
   return {
-    async listVenues(rbac) {
-      if (rbac.isSuperAdmin) return store.slice();
-      return store.filter((v) =>
-        canReadVenue(rbac, { organizationId: v.organizationId, venueId: v.id }),
-      );
+    async listVenues(rbac, page) {
+      const visible = rbac.isSuperAdmin
+        ? store.slice()
+        : store.filter((v) =>
+            canReadVenue(rbac, { organizationId: v.organizationId, venueId: v.id }),
+          );
+      return applyPage(visible, page);
     },
 
     async getVenue(rbac, venueId) {
@@ -692,6 +689,27 @@ export function createFakeOrgManagementService(
       return { status: "deleted" };
     },
   };
+}
+
+function applyPage<T extends { createdAt: Date; id: string }>(
+  items: T[],
+  page: PageRequest,
+): Page<T> {
+  const sorted = [...items].sort((a, b) => {
+    const timeDiff = b.createdAt.getTime() - a.createdAt.getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return b.id < a.id ? -1 : b.id > a.id ? 1 : 0;
+  });
+  const filtered = page.cursor
+    ? sorted.filter((item) => {
+        const curAt = page.cursor!.createdAt.getTime();
+        const itemAt = item.createdAt.getTime();
+        if (itemAt < curAt) return true;
+        if (itemAt === curAt && item.id < page.cursor!.id) return true;
+        return false;
+      })
+    : sorted;
+  return toPage(filtered, page.limit);
 }
 
 export const sessionCookie = "qr_admin_session=test-session-token";

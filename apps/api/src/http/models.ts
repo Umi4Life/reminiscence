@@ -34,6 +34,7 @@ export const apiModels = new Elysia({ name: "api-models" }).model({
   AdminPasswordResetBody: schemas.AdminPasswordResetBody,
 
   // Path params & query strings
+  PaginationQuery: schemas.PaginationQuery,
   OrgIdParams: schemas.OrgIdParams,
   MembershipIdParams: schemas.MembershipIdParams,
   VenueIdParams: schemas.VenueIdParams,

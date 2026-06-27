@@ -1,7 +1,7 @@
 import type { Venue } from "@queue-reminiscence/db";
 import type { Database } from "@queue-reminiscence/db";
 import { boards, organizations, venues } from "@queue-reminiscence/db/schema";
-import { and, count, eq, inArray, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, lt, ne, or } from "drizzle-orm";
 
 import {
   canManageOrganization,
@@ -12,6 +12,7 @@ import {
 } from "../auth/rbac";
 
 import type { VenueSummary } from "./board-management";
+import { type Page, type PageRequest, toPage } from "../http/pagination";
 
 export interface CreateVenueInput {
   organizationId: string;
@@ -47,7 +48,7 @@ export type DeleteVenueResult =
   | { status: "has_boards" };
 
 export interface VenueManagementService {
-  listVenues(rbac: AdminRbacContext): Promise<VenueSummary[]>;
+  listVenues(rbac: AdminRbacContext, page: PageRequest): Promise<Page<VenueSummary>>;
   getVenue(rbac: AdminRbacContext, venueId: string): Promise<VenueSummary | null>;
   createVenue(rbac: AdminRbacContext, input: CreateVenueInput): Promise<CreateVenueResult>;
   updateVenue(
@@ -89,35 +90,42 @@ function toVenueSummary(venue: Venue): VenueSummary {
 
 export function createDbVenueManagementService(db: Database): VenueManagementService {
   return {
-    async listVenues(rbac): Promise<VenueSummary[]> {
-      if (rbac.isSuperAdmin) {
-        const rows = await db.select().from(venues);
-        return rows.map(toVenueSummary);
-      }
-
-      const ownedOrgIds = getOrgOwnedOrganizationIds(rbac.memberships);
-      const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
-
-      if (ownedOrgIds.length === 0 && assignedVenueIds.length === 0) {
-        return [];
-      }
-
+    async listVenues(rbac, page): Promise<Page<VenueSummary>> {
       const conditions = [];
 
-      if (ownedOrgIds.length > 0) {
-        conditions.push(inArray(venues.organizationId, ownedOrgIds));
+      if (!rbac.isSuperAdmin) {
+        const ownedOrgIds = getOrgOwnedOrganizationIds(rbac.memberships);
+        const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
+
+        if (ownedOrgIds.length === 0 && assignedVenueIds.length === 0) {
+          return { items: [], nextCursor: null };
+        }
+
+        const accessConditions = [];
+        if (ownedOrgIds.length > 0) {
+          accessConditions.push(inArray(venues.organizationId, ownedOrgIds));
+        }
+        if (assignedVenueIds.length > 0) {
+          accessConditions.push(inArray(venues.id, assignedVenueIds));
+        }
+        conditions.push(or(...accessConditions)!);
       }
 
-      if (assignedVenueIds.length > 0) {
-        conditions.push(inArray(venues.id, assignedVenueIds));
+      if (page.cursor) {
+        const { createdAt: curAt, id: curId } = page.cursor;
+        conditions.push(
+          or(lt(venues.createdAt, curAt), and(eq(venues.createdAt, curAt), lt(venues.id, curId)))!,
+        );
       }
 
       const rows = await db
         .select()
         .from(venues)
-        .where(or(...conditions));
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(venues.createdAt), desc(venues.id))
+        .limit(page.limit + 1);
 
-      return rows.map(toVenueSummary);
+      return toPage(rows.map(toVenueSummary), page.limit);
     },
 
     async getVenue(rbac, venueId): Promise<VenueSummary | null> {

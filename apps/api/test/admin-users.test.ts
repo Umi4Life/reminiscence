@@ -100,7 +100,7 @@ function createFakeAdminManagementService(
 
     async listAdmins(rbac: AdminRbacContext) {
       if (rbac.isSuperAdmin) {
-        return { status: "ok", admins: store.slice() };
+        return { status: "ok", page: { items: store.slice(), nextCursor: null } };
       }
       // Org-owner: return only admins with memberships in their org
       const ownedOrgIds = new Set(
@@ -112,7 +112,7 @@ function createFakeAdminManagementService(
       const admins = store.filter((a) =>
         a.memberships.some((m) => ownedOrgIds.has(m.organizationId)),
       );
-      return { status: "ok", admins };
+      return { status: "ok", page: { items: admins, nextCursor: null } };
     },
 
     async getAdmin(adminUserId: string) {

@@ -10,6 +10,7 @@ import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { toAdminRbacContext } from "../auth/rbac";
 import { forbiddenError, notFoundError, validationError } from "../http/errors";
+import { parsePageRequest } from "../http/pagination";
 import { apiSuccess } from "../http/response";
 import { apiModels } from "../http/models";
 import { API_TAGS } from "../http/openapi-config";
@@ -44,15 +45,22 @@ export function adminVenuesRoutes(deps: AdminVenuesRouteDeps) {
     .use(apiModels)
     .get(
       "/api/admin/venues",
-      async ({ request }) => {
+      async ({ request, query }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
-        const venues = await deps.venueManagementService.listVenues(toAdminRbacContext(session));
+        const page = parsePageRequest(query);
+        const result = await deps.venueManagementService.listVenues(
+          toAdminRbacContext(session),
+          page,
+        );
 
-        return apiSuccess({ venues });
+        return apiSuccess({ venues: result.items, nextCursor: result.nextCursor });
       },
       {
+        query: "PaginationQuery",
         response: {
-          200: success(t.Object({ venues: t.Array(VenueSummary) })),
+          200: success(
+            t.Object({ venues: t.Array(VenueSummary), nextCursor: t.Nullable(t.String()) }),
+          ),
           401: "ErrorResponse",
         },
         detail: {

@@ -11,7 +11,7 @@ import {
   queueEntries,
   venues,
 } from "@queue-reminiscence/db/schema";
-import { and, eq, inArray, ne, or } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, ne, or } from "drizzle-orm";
 
 import type { CreateBoardInput, PatchBoardInput } from "./board-input";
 import { patchChangesDisplayVersion } from "./board-input";
@@ -29,6 +29,7 @@ import {
   type AdminMembershipContext,
   type AdminRbacContext,
 } from "../auth/rbac";
+import { type Page, type PageRequest, toPage } from "../http/pagination";
 
 export interface OrganizationSummary {
   id: string;
@@ -71,9 +72,9 @@ export interface BoardSummary {
 }
 
 export interface BoardManagementService {
-  listOrganizations(rbac: AdminRbacContext): Promise<OrganizationSummary[]>;
-  listVenues(rbac: AdminRbacContext): Promise<VenueSummary[]>;
-  listBoards(rbac: AdminRbacContext): Promise<BoardSummary[]>;
+  listOrganizations(rbac: AdminRbacContext, page: PageRequest): Promise<Page<OrganizationSummary>>;
+  listVenues(rbac: AdminRbacContext, page: PageRequest): Promise<Page<VenueSummary>>;
+  listBoards(rbac: AdminRbacContext, page: PageRequest): Promise<Page<BoardSummary>>;
   getBoard(rbac: AdminRbacContext, boardId: string): Promise<BoardSummary | null>;
   createBoard(rbac: AdminRbacContext, input: CreateBoardInput): Promise<CreateBoardResult>;
   updateBoard(
@@ -205,90 +206,116 @@ export function toBoardSummaryFromRow(board: Board, venue: Venue): BoardSummary 
 
 export function createDbBoardManagementService(db: Database): BoardManagementService {
   return {
-    async listOrganizations(rbac: AdminRbacContext): Promise<OrganizationSummary[]> {
-      if (rbac.isSuperAdmin) {
-        const rows = await db.select().from(organizations);
-        return rows.map(toOrganizationSummary);
+    async listOrganizations(
+      rbac: AdminRbacContext,
+      page: PageRequest,
+    ): Promise<Page<OrganizationSummary>> {
+      const conditions = [];
+
+      if (!rbac.isSuperAdmin) {
+        const organizationIds = getAccessibleOrganizationIds(rbac.memberships);
+        if (organizationIds.length === 0) return { items: [], nextCursor: null };
+        conditions.push(inArray(organizations.id, organizationIds));
       }
 
-      const organizationIds = getAccessibleOrganizationIds(rbac.memberships);
-
-      if (organizationIds.length === 0) {
-        return [];
+      if (page.cursor) {
+        const { createdAt: curAt, id: curId } = page.cursor;
+        conditions.push(
+          or(
+            lt(organizations.createdAt, curAt),
+            and(eq(organizations.createdAt, curAt), lt(organizations.id, curId)),
+          )!,
+        );
       }
 
       const rows = await db
         .select()
         .from(organizations)
-        .where(inArray(organizations.id, organizationIds));
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(organizations.createdAt), desc(organizations.id))
+        .limit(page.limit + 1);
 
-      return rows.map(toOrganizationSummary);
+      return toPage(rows.map(toOrganizationSummary), page.limit);
     },
 
-    async listVenues(rbac: AdminRbacContext): Promise<VenueSummary[]> {
-      if (rbac.isSuperAdmin) {
-        const rows = await db.select().from(venues);
-        return rows.map(toVenueSummary);
+    async listVenues(rbac: AdminRbacContext, page: PageRequest): Promise<Page<VenueSummary>> {
+      const conditions = [];
+
+      if (!rbac.isSuperAdmin) {
+        const ownedOrganizationIds = getOrgOwnedOrganizationIds(rbac.memberships);
+        const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
+
+        if (ownedOrganizationIds.length === 0 && assignedVenueIds.length === 0) {
+          return { items: [], nextCursor: null };
+        }
+
+        const accessConditions = [];
+        if (ownedOrganizationIds.length > 0) {
+          accessConditions.push(inArray(venues.organizationId, ownedOrganizationIds));
+        }
+        if (assignedVenueIds.length > 0) {
+          accessConditions.push(inArray(venues.id, assignedVenueIds));
+        }
+        conditions.push(or(...accessConditions)!);
       }
 
-      const ownedOrganizationIds = getOrgOwnedOrganizationIds(rbac.memberships);
-      const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
-
-      if (ownedOrganizationIds.length === 0 && assignedVenueIds.length === 0) {
-        return [];
-      }
-
-      const accessConditions = [];
-
-      if (ownedOrganizationIds.length > 0) {
-        accessConditions.push(inArray(venues.organizationId, ownedOrganizationIds));
-      }
-
-      if (assignedVenueIds.length > 0) {
-        accessConditions.push(inArray(venues.id, assignedVenueIds));
+      if (page.cursor) {
+        const { createdAt: curAt, id: curId } = page.cursor;
+        conditions.push(
+          or(lt(venues.createdAt, curAt), and(eq(venues.createdAt, curAt), lt(venues.id, curId)))!,
+        );
       }
 
       const rows = await db
         .select()
         .from(venues)
-        .where(or(...accessConditions));
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(venues.createdAt), desc(venues.id))
+        .limit(page.limit + 1);
 
-      return rows.map(toVenueSummary);
+      return toPage(rows.map(toVenueSummary), page.limit);
     },
 
-    async listBoards(rbac: AdminRbacContext): Promise<BoardSummary[]> {
-      if (rbac.isSuperAdmin) {
-        const rows = await db
-          .select({ board: boards, venue: venues })
-          .from(boards)
-          .innerJoin(venues, eq(boards.venueId, venues.id));
-        return rows.map((row) => toBoardSummaryFromRow(row.board, row.venue));
+    async listBoards(rbac: AdminRbacContext, page: PageRequest): Promise<Page<BoardSummary>> {
+      const conditions = [];
+
+      if (!rbac.isSuperAdmin) {
+        const ownedOrganizationIds = getOrgOwnedOrganizationIds(rbac.memberships);
+        const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
+
+        if (ownedOrganizationIds.length === 0 && assignedVenueIds.length === 0) {
+          return { items: [], nextCursor: null };
+        }
+
+        const accessConditions = [];
+        if (ownedOrganizationIds.length > 0) {
+          accessConditions.push(inArray(venues.organizationId, ownedOrganizationIds));
+        }
+        if (assignedVenueIds.length > 0) {
+          accessConditions.push(inArray(boards.venueId, assignedVenueIds));
+        }
+        conditions.push(or(...accessConditions)!);
       }
 
-      const ownedOrganizationIds = getOrgOwnedOrganizationIds(rbac.memberships);
-      const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
-
-      if (ownedOrganizationIds.length === 0 && assignedVenueIds.length === 0) {
-        return [];
-      }
-
-      const accessConditions = [];
-
-      if (ownedOrganizationIds.length > 0) {
-        accessConditions.push(inArray(venues.organizationId, ownedOrganizationIds));
-      }
-
-      if (assignedVenueIds.length > 0) {
-        accessConditions.push(inArray(boards.venueId, assignedVenueIds));
+      if (page.cursor) {
+        const { createdAt: curAt, id: curId } = page.cursor;
+        conditions.push(
+          or(lt(boards.createdAt, curAt), and(eq(boards.createdAt, curAt), lt(boards.id, curId)))!,
+        );
       }
 
       const rows = await db
         .select({ board: boards, venue: venues })
         .from(boards)
         .innerJoin(venues, eq(boards.venueId, venues.id))
-        .where(or(...accessConditions));
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(boards.createdAt), desc(boards.id))
+        .limit(page.limit + 1);
 
-      return rows.map((row) => toBoardSummaryFromRow(row.board, row.venue));
+      return toPage(
+        rows.map((row) => toBoardSummaryFromRow(row.board, row.venue)),
+        page.limit,
+      );
     },
 
     async getBoard(rbac: AdminRbacContext, boardId: string): Promise<BoardSummary | null> {

@@ -10,6 +10,7 @@ import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { toAdminRbacContext, assertSuperAdmin, canCreateAdminWithMembership } from "../auth/rbac";
 import { forbiddenError, notFoundError, validationError } from "../http/errors";
+import { parsePageRequest } from "../http/pagination";
 import { apiSuccess } from "../http/response";
 import { apiModels } from "../http/models";
 import { API_TAGS } from "../http/openapi-config";
@@ -33,18 +34,22 @@ export function adminUsersRoutes(deps: AdminUsersRouteDeps) {
     .use(apiModels)
     .get(
       "/api/admin/admins",
-      async ({ request }) => {
+      async ({ request, query }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
         const rbac = toAdminRbacContext(session);
+        const page = parsePageRequest(query);
 
-        const result = await deps.adminManagementService.listAdmins(rbac);
+        const result = await deps.adminManagementService.listAdmins(rbac, page);
         if (result.status === "forbidden") throw forbiddenError();
 
-        return apiSuccess({ admins: result.admins });
+        return apiSuccess({ admins: result.page.items, nextCursor: result.page.nextCursor });
       },
       {
+        query: "PaginationQuery",
         response: {
-          200: success(t.Object({ admins: t.Array(AdminUserSummary) })),
+          200: success(
+            t.Object({ admins: t.Array(AdminUserSummary), nextCursor: t.Nullable(t.String()) }),
+          ),
           401: "ErrorResponse",
           403: "ErrorResponse",
         },

@@ -257,6 +257,21 @@ export const DisplayTokenParams = t.Object({
   displayToken: t.String({ description: "Opaque display device token provisioned by an admin." }),
 });
 
+export const PaginationQuery = t.Object({
+  limit: t.Optional(
+    t.Numeric({
+      minimum: 1,
+      maximum: 100,
+      description: "Maximum items to return (1–100, default 20).",
+    }),
+  ),
+  cursor: t.Optional(
+    t.String({
+      description: "Opaque pagination cursor from the previous response's nextCursor.",
+    }),
+  ),
+});
+
 export const EventsQuery = t.Object({
   limit: t.Optional(
     t.Numeric({ minimum: 1, description: "Maximum events to return (1–100, default 20)." }),

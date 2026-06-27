@@ -191,7 +191,7 @@ function createFakeAdminManagement(): AdminManagementService {
   return {
     async listAdmins(_rbac) {
       void _rbac;
-      return { status: "ok", admins: [] };
+      return { status: "ok", page: { items: [], nextCursor: null } };
     },
     async getAdmin(adminUserId) {
       return {
@@ -525,7 +525,7 @@ describe("audit log — no event on guarded admin rejections", () => {
     function createForbiddingAdminManagement(): AdminManagementService {
       return {
         async listAdmins() {
-          return { status: "ok", admins: [] };
+          return { status: "ok", page: { items: [], nextCursor: null } };
         },
         async getAdmin(id) {
           return {
@@ -588,7 +588,7 @@ describe("audit log — no event on guarded admin rejections", () => {
     function createLastSuperAdminManagement(): AdminManagementService {
       return {
         async listAdmins() {
-          return { status: "ok", admins: [] };
+          return { status: "ok", page: { items: [], nextCursor: null } };
         },
         async getAdmin(id) {
           return {

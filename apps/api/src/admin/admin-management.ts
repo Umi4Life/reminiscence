@@ -6,10 +6,11 @@ import {
   organizations,
   venues,
 } from "@queue-reminiscence/db/schema";
-import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 
 import { hashPassword } from "../auth/passwords";
 import { canManagePlatform, getOwnedOrganizationIds, type AdminRbacContext } from "../auth/rbac";
+import { encodeCursor, type Page, type PageRequest } from "../http/pagination";
 
 export interface AdminUserSummary {
   id: string;
@@ -54,7 +55,7 @@ export type CreateAdminResult =
   | { status: "venue_not_found" };
 
 export type ListAdminsResult =
-  | { status: "ok"; admins: AdminUserSummary[] }
+  | { status: "ok"; page: Page<AdminUserSummary> }
   | { status: "forbidden" };
 
 export type UpdateAdminResult =
@@ -70,7 +71,7 @@ export type ResetAdminPasswordResult =
   | { status: "forbidden" };
 
 export interface AdminManagementService {
-  listAdmins(rbac: AdminRbacContext): Promise<ListAdminsResult>;
+  listAdmins(rbac: AdminRbacContext, page: PageRequest): Promise<ListAdminsResult>;
   getAdmin(adminUserId: string): Promise<AdminUserSummary | null>;
   createAdmin(input: CreateAdminInput): Promise<CreateAdminResult>;
   updateAdmin(
@@ -127,19 +128,44 @@ async function revokeAdminSessions(db: Database, adminUserId: string): Promise<v
 
 export function createDbAdminManagementService(db: Database): AdminManagementService {
   return {
-    async listAdmins(rbac): Promise<ListAdminsResult> {
+    async listAdmins(rbac, page): Promise<ListAdminsResult> {
+      const cursorCondition = page.cursor
+        ? or(
+            lt(adminUsers.createdAt, page.cursor.createdAt),
+            and(eq(adminUsers.createdAt, page.cursor.createdAt), lt(adminUsers.id, page.cursor.id)),
+          )
+        : undefined;
+
       if (canManagePlatform(rbac)) {
-        const rows = await db.select().from(adminUsers).orderBy(adminUsers.createdAt);
-        const allMemberships = await db.select().from(adminMemberships);
-        return {
-          status: "ok",
-          admins: rows.map((admin) =>
-            toAdminUserSummary(
-              admin,
-              allMemberships.filter((m) => m.adminUserId === admin.id),
-            ),
+        const fetched = await db
+          .select()
+          .from(adminUsers)
+          .where(cursorCondition)
+          .orderBy(desc(adminUsers.createdAt), desc(adminUsers.id))
+          .limit(page.limit + 1);
+
+        const hasNext = fetched.length > page.limit;
+        const pageRows = hasNext ? fetched.slice(0, page.limit) : fetched;
+
+        if (pageRows.length === 0) {
+          return { status: "ok", page: { items: [], nextCursor: null } };
+        }
+
+        const pageIds = pageRows.map((r) => r.id);
+        const pageMemberships = await db
+          .select()
+          .from(adminMemberships)
+          .where(inArray(adminMemberships.adminUserId, pageIds));
+
+        const admins = pageRows.map((admin) =>
+          toAdminUserSummary(
+            admin,
+            pageMemberships.filter((m) => m.adminUserId === admin.id),
           ),
-        };
+        );
+        const last = pageRows[pageRows.length - 1]!;
+        const nextCursor = hasNext ? encodeCursor(last.createdAt, last.id) : null;
+        return { status: "ok", page: { items: admins, nextCursor } };
       }
 
       // Non-super: scope to admins the caller can see. Org-owners see their whole
@@ -168,25 +194,37 @@ export function createDbAdminManagementService(db: Database): AdminManagementSer
           ),
         );
 
-      if (scopeMemberships.length === 0) return { status: "ok", admins: [] };
+      if (scopeMemberships.length === 0) {
+        return { status: "ok", page: { items: [], nextCursor: null } };
+      }
 
-      const adminUserIds = [...new Set(scopeMemberships.map((m) => m.adminUserId))];
+      const visibleIds = [...new Set(scopeMemberships.map((m) => m.adminUserId))];
 
-      const rows = await db
+      const conditions = [inArray(adminUsers.id, visibleIds)];
+      if (cursorCondition) conditions.push(cursorCondition);
+
+      const fetched = await db
         .select()
         .from(adminUsers)
-        .where(inArray(adminUsers.id, adminUserIds))
-        .orderBy(adminUsers.createdAt);
+        .where(and(...conditions))
+        .orderBy(desc(adminUsers.createdAt), desc(adminUsers.id))
+        .limit(page.limit + 1);
 
-      return {
-        status: "ok",
-        admins: rows.map((admin) =>
-          toAdminUserSummary(
-            admin,
-            scopeMemberships.filter((m) => m.adminUserId === admin.id),
-          ),
+      const hasNext = fetched.length > page.limit;
+      const pageRows = hasNext ? fetched.slice(0, page.limit) : fetched;
+
+      const pageIdSet = new Set(pageRows.map((r) => r.id));
+      const pageScopeMemberships = scopeMemberships.filter((m) => pageIdSet.has(m.adminUserId));
+
+      const admins = pageRows.map((admin) =>
+        toAdminUserSummary(
+          admin,
+          pageScopeMemberships.filter((m) => m.adminUserId === admin.id),
         ),
-      };
+      );
+      const last = pageRows[pageRows.length - 1];
+      const nextCursor = hasNext && last ? encodeCursor(last.createdAt, last.id) : null;
+      return { status: "ok", page: { items: admins, nextCursor } };
     },
 
     async getAdmin(adminUserId: string): Promise<AdminUserSummary | null> {

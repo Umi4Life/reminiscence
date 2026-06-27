@@ -91,7 +91,7 @@ describe("admin venues routes", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, data: { venues: [] } });
+    expect(await response.json()).toEqual({ ok: true, data: { venues: [], nextCursor: null } });
   });
 
   test("does not leak unassigned venues to venue manager", async () => {

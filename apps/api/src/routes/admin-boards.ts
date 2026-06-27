@@ -8,6 +8,7 @@ import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { toAdminRbacContext, type AdminRbacContext } from "../auth/rbac";
 import { forbiddenError, notFoundError, validationError } from "../http/errors";
+import { parsePageRequest } from "../http/pagination";
 import { apiSuccess } from "../http/response";
 import { apiModels } from "../http/models";
 import { API_TAGS } from "../http/openapi-config";
@@ -71,15 +72,22 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
     .use(apiModels)
     .get(
       "/api/admin/boards",
-      async ({ request }) => {
+      async ({ request, query }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
-        const boards = await deps.boardManagementService.listBoards(toAdminRbacContext(session));
+        const page = parsePageRequest(query);
+        const result = await deps.boardManagementService.listBoards(
+          toAdminRbacContext(session),
+          page,
+        );
 
-        return apiSuccess({ boards });
+        return apiSuccess({ boards: result.items, nextCursor: result.nextCursor });
       },
       {
+        query: "PaginationQuery",
         response: {
-          200: success(t.Object({ boards: t.Array(BoardSummary) })),
+          200: success(
+            t.Object({ boards: t.Array(BoardSummary), nextCursor: t.Nullable(t.String()) }),
+          ),
           401: "ErrorResponse",
         },
         detail: {

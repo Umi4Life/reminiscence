@@ -84,7 +84,10 @@ export const organizations = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [unique("organizations_slug_unique").on(table.slug)],
+  (table) => [
+    unique("organizations_slug_unique").on(table.slug),
+    index("organizations_created_at_id_idx").on(desc(table.createdAt), desc(table.id)),
+  ],
 );
 
 export const venues = pgTable(
@@ -107,6 +110,12 @@ export const venues = pgTable(
   (table) => [
     uniqueIndex("venues_organization_slug_unique").on(table.organizationId, table.slug),
     index("venues_organization_id_idx").on(table.organizationId),
+    index("venues_created_at_id_idx").on(desc(table.createdAt), desc(table.id)),
+    index("venues_organization_created_at_id_idx").on(
+      table.organizationId,
+      desc(table.createdAt),
+      desc(table.id),
+    ),
   ],
 );
 
@@ -142,6 +151,12 @@ export const boards = pgTable(
     uniqueIndex("boards_venue_slug_unique").on(table.venueId, table.slug),
     unique("boards_public_slug_unique").on(table.publicSlug),
     index("boards_venue_id_idx").on(table.venueId),
+    index("boards_created_at_id_idx").on(desc(table.createdAt), desc(table.id)),
+    index("boards_venue_created_at_id_idx").on(
+      table.venueId,
+      desc(table.createdAt),
+      desc(table.id),
+    ),
   ],
 );
 
@@ -219,7 +234,10 @@ export const adminUsers = pgTable(
       .$onUpdate(() => new Date()),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: "date" }),
   },
-  (table) => [unique("admin_users_email_unique").on(table.email)],
+  (table) => [
+    unique("admin_users_email_unique").on(table.email),
+    index("admin_users_created_at_id_idx").on(desc(table.createdAt), desc(table.id)),
+  ],
 );
 
 export const adminSessions = pgTable(

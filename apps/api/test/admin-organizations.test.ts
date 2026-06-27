@@ -72,7 +72,10 @@ describe("admin organizations routes", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, data: { organizations: [] } });
+    expect(await response.json()).toEqual({
+      ok: true,
+      data: { organizations: [], nextCursor: null },
+    });
   });
 
   test("does not leak inaccessible organizations", async () => {

@@ -76,13 +76,25 @@ openssl rand -hex 32   # run once per secret variable
 
 ---
 
+## First-Run: Explicit Migration
+
+Run the schema migration as the dedicated one-shot `migrate` service before
+starting the app containers. It uses the same API image build with `APP=migrate`:
+
+```bash
+docker compose -f docker-compose.homelab.yml --profile migrate run --rm migrate
+```
+
+---
+
 ## Start the Stack
 
 ```bash
 docker compose -f docker-compose.homelab.yml up -d
 ```
 
-This starts **three app containers only** — no Postgres, no Traefik:
+This starts **three app containers only** — no Postgres, no Traefik, and no
+migration. The API runs with `APP=api`.
 
 | Container    | Internal Port | Description                      |
 | ------------ | ------------- | -------------------------------- |
@@ -94,20 +106,15 @@ Traefik discovers the containers via Docker labels in `docker-compose.homelab.ym
 
 ---
 
-## First-Run: Explicit Migration and Seed
+## Optional First-Run Seed
 
-Run the schema migration as a separate one-shot command; it does not seed. Then
-seed only when bootstrap data is intentionally required:
+After the API is running, seed only when bootstrap data is intentionally
+required:
 
 ```bash
-# Migrate the schema
-docker compose -f docker-compose.homelab.yml exec qr-api \
-  bun run --cwd /app/packages/db db:migrate
-
-# Seed the first admin and demo org/venue/board
 SEED_ADMIN_EMAIL=admin@example.com \
 SEED_ADMIN_PASSWORD=your-strong-password \
-docker compose -f docker-compose.homelab.yml exec -e SEED_ADMIN_EMAIL -e SEED_ADMIN_PASSWORD qr-api \
+docker compose -f docker-compose.homelab.yml exec -e SEED_ADMIN_EMAIL -e SEED_ADMIN_PASSWORD api \
   bun run --cwd /app/packages/db db:seed
 ```
 
@@ -156,17 +163,16 @@ gunzip < backup.sql.gz | psql -U queue_reminiscence -h localhost queue_reminisce
 
 ## Upgrades
 
-1. Pull the new image (or rebuild locally):
+1. Rebuild the app images from the updated source:
 
    ```bash
-   docker compose -f docker-compose.homelab.yml pull
+   docker compose -f docker-compose.homelab.yml build --pull
    ```
 
 2. Run migrations before restarting app containers:
 
    ```bash
-   docker compose -f docker-compose.homelab.yml run --rm qr-api \
-     bun run --cwd /app/packages/db db:migrate
+   docker compose -f docker-compose.homelab.yml --profile migrate run --rm migrate
    ```
 
 3. Restart the stack:

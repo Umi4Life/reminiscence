@@ -34,6 +34,9 @@ COPY apps/api ./apps/api
 
 EXPOSE 3002
 
-# Apply any pending migrations then start the server.
+# The app mode is selected by docker-entrypoint.sh. API startup never migrates.
 # DATABASE_URL and other required env vars must be provided at runtime.
-CMD ["sh", "-c", "bun run --cwd packages/db db:migrate && exec bun run apps/api/src/index.ts"]
+ENV APP=api
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

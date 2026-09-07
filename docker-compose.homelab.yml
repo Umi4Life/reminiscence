@@ -12,18 +12,27 @@ name: queue-reminiscence
 #   - Set TRUST_PROXY=true in .env when Traefik terminates TLS
 #   - Set PUBLIC_APP_URL / ADMIN_APP_URL to your public hostnames in .env
 
+x-api-build: &api-build
+  context: .
+  dockerfile: apps/api/Dockerfile
+
 services:
+  migrate:
+    build: *api-build
+    env_file: .env
+    environment:
+      APP: migrate
+    profiles: [migrate]
+
   api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
+    build: *api-build
     container_name: qr-api
     env_file: .env
+    environment:
+      APP: api
     expose:
       - "3002"
     restart: unless-stopped
-    command: >
-      sh -c 'bun run --cwd packages/db db:migrate && bun run apps/api/src/index.ts'
     healthcheck:
       test:
         [

@@ -13,7 +13,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit --project tsconfig.json",
-    "test": "bun test apps packages --pass-with-no-tests && bun run test:entrypoint",
+    "test": "bun test apps packages --pass-with-no-tests && bun run test:entrypoint && bun run test:homelab-compose",
     "test:entrypoint": "sh tests/entrypoint-smoke.sh",
     "test:homelab-compose": "sh tests/homelab-compose-smoke.sh",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run test",

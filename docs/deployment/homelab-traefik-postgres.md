@@ -94,9 +94,10 @@ Traefik discovers the containers via Docker labels in `docker-compose.homelab.ym
 
 ---
 
-## First-Run: Migrations and Seed
+## First-Run: Explicit Migration and Seed
 
-Run once after the containers are up:
+Run the schema migration as a separate one-shot command; it does not seed. Then
+seed only when bootstrap data is intentionally required:
 
 ```bash
 # Migrate the schema

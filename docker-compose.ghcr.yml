@@ -2,8 +2,9 @@ name: queue-reminiscence
 # Deploy Reminiscence from the prebuilt GHCR image — no local build required.
 #
 # All three app processes run from ONE image; the APP env var selects which
-# process starts (see docker-entrypoint.sh). The api container also runs DB
-# migrations on start. Seed only runs when RUN_SEED=true.
+# process starts (see docker-entrypoint.sh). Run migrations as the explicit
+# `migrate` profile before starting the API. Seed only runs in APP=api when
+# RUN_SEED=true.
 #
 # Usage:
 #   cp .env.example .env && $EDITOR .env   # set secrets + seed admin
@@ -37,6 +38,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  migrate:
+    image: *image
+    env_file: .env
+    environment:
+      APP: migrate
+      # Override any localhost DSN from .env with the Docker-internal hostname
+      DATABASE_URL: postgres://queue_reminiscence:${POSTGRES_PASSWORD:-queue_reminiscence}@qr-postgres:5432/queue_reminiscence
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: [migrate]
 
   api:
     image: *image

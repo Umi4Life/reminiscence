@@ -7,10 +7,11 @@ host.
 - **Image:** [`ghcr.io/umi4life/reminiscence`](https://github.com/Umi4Life/reminiscence/pkgs/container/reminiscence)
 - **Compose file:** [`docker-compose.ghcr.yml`](../../docker-compose.ghcr.yml) — registry-based, Postgres bundled.
 
-> **One image, three apps.** The same image runs all three processes. The `APP`
-> environment variable (`api`, `admin-web`, or `public-web`) selects which one
-> starts; the `api` process also applies DB migrations on boot. It seeds the
-> first admin only when `RUN_SEED=true`. See [`docker-entrypoint.sh`](../../docker-entrypoint.sh).
+> **One image, four modes.** The same image runs the three app processes plus the
+> one-shot `migrate` job. The `APP` environment variable (`migrate`, `api`,
+> `admin-web`, or `public-web`) selects the mode. `migrate` applies DB migrations
+> and exits; `api` starts only the API and seeds only when `RUN_SEED=true`. See
+> [`docker-entrypoint.sh`](../../docker-entrypoint.sh).
 
 ---
 
@@ -53,28 +54,33 @@ curl -O https://raw.githubusercontent.com/Umi4Life/reminiscence/main/docker-comp
 curl -O https://raw.githubusercontent.com/Umi4Life/reminiscence/main/.env.example
 mv .env.example .env
 
-# 2. Configure — set the three *_SECRET values, seed admin, and RUN_SEED=true for bootstrap
+# 2. Configure — set the three *_SECRET values; set seed variables only for bootstrap
 $EDITOR .env
 
-# 3. Choose a tag and start the stack
+# 3. Choose a tag and run the one-shot migration job
 export REMINISCENCE_TAG=latest          # or 1.2.3, or edge
+docker compose -f docker-compose.ghcr.yml --profile migrate run --rm migrate
+
+# 4. Start the application stack
 docker compose -f docker-compose.ghcr.yml up -d
 ```
 
-This starts four containers:
+This starts four long-running containers; the `migrate` profile is a separate
+one-shot job:
 
 | Container     | Port | `APP`        | Description                  |
 | ------------- | ---- | ------------ | ---------------------------- |
 | `qr-postgres` | —    | —            | PostgreSQL 16 (internal)     |
-| `qr-api`      | 3002 | `api`        | Bun + Elysia API (+ migrate) |
+| `migrate`     | —    | `migrate`    | One-shot database migration  |
+| `qr-api`      | 3002 | `api`        | Bun + Elysia API             |
 | `qr-admin`    | 3001 | `admin-web`  | SvelteKit admin app          |
 | `qr-display`  | 3000 | `public-web` | SvelteKit public/display app |
 
-The `api` container runs migrations automatically. To bootstrap the first admin
-and demo org/venue/board, set `RUN_SEED=true` together with
+The `migrate` job runs migrations and exits; it never seeds. To bootstrap the
+first admin and demo org/venue/board, set `RUN_SEED=true` together with
 `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` before starting the API container.
 The seed is **idempotent**, but leave `RUN_SEED=false` after bootstrap so deleted
-demo records are not recreated on every restart.
+demo records are not recreated on every API restart.
 
 Open <http://localhost:3001> and sign in with your seed admin credentials.
 
@@ -141,7 +147,8 @@ export REMINISCENCE_TAG=1.3.0
 # 2. Pull the new image
 docker compose -f docker-compose.ghcr.yml pull
 
-# 3. Recreate — the api container applies any new migrations on boot
+# 3. Apply migrations as a one-shot job, then recreate the app containers
+docker compose -f docker-compose.ghcr.yml --profile migrate run --rm migrate
 docker compose -f docker-compose.ghcr.yml up -d
 ```
 

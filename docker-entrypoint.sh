@@ -2,8 +2,10 @@
 set -e
 
 case "$APP" in
-  api)
+  migrate)
     bun run --cwd packages/db db:migrate
+    ;;
+  api)
     if [ "${RUN_SEED:-false}" = "true" ]; then
       if [ -z "$SEED_ADMIN_EMAIL" ] || [ -z "$SEED_ADMIN_PASSWORD" ]; then
         echo "Error: RUN_SEED=true requires SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD" >&2
@@ -22,7 +24,7 @@ case "$APP" in
     exec bun apps/public-web/build/index.js
     ;;
   *)
-    echo "Error: APP must be set to one of: api, admin-web, public-web" >&2
+    echo "Error: APP must be set to one of: migrate, api, admin-web, public-web" >&2
     exit 1
     ;;
 esac

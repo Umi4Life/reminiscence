@@ -36,12 +36,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ env.IMAGE_NAME }}
-          # v1.2.3 -> 1.2.3, 1.2, 1, and latest
+          # Publish only the exact immutable Git release tag, for example v1.2.3.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest
+            type=raw,value=${{ github.ref_name }}
 
       - name: Build and push
         uses: docker/build-push-action@v6

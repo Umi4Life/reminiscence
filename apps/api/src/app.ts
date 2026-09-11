@@ -2,8 +2,8 @@ import type { AppConfig } from "@queue-reminiscence/config";
 import { parseEnv } from "@queue-reminiscence/config/env";
 import type { Database } from "@queue-reminiscence/db";
 import { createDb } from "@queue-reminiscence/db";
-import { openapi, toOpenAPISchema } from "@elysia/openapi";
-import { Elysia, ValidationError, type AnyElysia } from "elysia";
+import { openapi } from "@elysia/openapi";
+import { Elysia, ValidationError } from "elysia";
 
 import {
   createDbBoardManagementService,
@@ -78,33 +78,6 @@ export interface AppDeps {
   displayStateService?: DisplayStateService;
 }
 
-// TypeBox's t.Date() serialises to anyOf: [{"type":"Date"}, ...]. "Date" is not
-// a valid OpenAPI 3.0 type and causes Scalar to fail rendering the whole document.
-// Strip that variant from every anyOf array before sending the spec to the client.
-function stripInvalidOpenApiTypes(value: unknown): unknown {
-  if (typeof value !== "object" || value === null) return value;
-  if (Array.isArray(value)) return value.map(stripInvalidOpenApiTypes);
-  const obj = value as Record<string, unknown>;
-  const result: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (k === "anyOf" && Array.isArray(v)) {
-      result[k] = v.map((item) => {
-        if (
-          typeof item === "object" &&
-          item !== null &&
-          (item as Record<string, unknown>).type === "Date"
-        ) {
-          return { type: "string", format: "date-time" };
-        }
-        return stripInvalidOpenApiTypes(item);
-      });
-    } else {
-      result[k] = stripInvalidOpenApiTypes(v);
-    }
-  }
-  return result;
-}
-
 function loadAppConfig(): AppConfig {
   const runtimeGlobal = globalThis as typeof globalThis & {
     Bun?: { env: Record<string, string | undefined> };
@@ -157,10 +130,6 @@ export function createApp(deps: AppDeps = {}) {
   const adminOrigin = adminOriginOf(config);
   const publicOrigin = publicOriginOf(config);
 
-  // Assigned after the app chain is built so the /api/docs/json handler can
-  // call toOpenAPISchema(appSelf) at request time (always after createApp returns).
-  let appSelf: AnyElysia = null!;
-
   // Emit HSTS only when the deployment actually terminates TLS, mirroring the
   // `Secure`-cookie convention used elsewhere. Harmless to omit over plain HTTP
   // (dev), and avoids poisoning a browser's HSTS cache for a non-HTTPS host.
@@ -184,30 +153,9 @@ export function createApp(deps: AppDeps = {}) {
     .use(
       openapi({
         path: "/api/docs",
-        specPath: "/api/docs/json-raw",
-        scalar: { url: "api/docs/json" },
+        scalar: { url: "/api/docs/json" },
         documentation: openApiDocumentation,
       }),
-    )
-    .get(
-      "/api/docs/json",
-      () => {
-        const { paths, components } = toOpenAPISchema(appSelf);
-        const spec = {
-          openapi: "3.0.3",
-          ...openApiDocumentation,
-          paths: { ...(paths as Record<string, unknown>), ...openApiDocumentation.paths },
-          components: {
-            ...openApiDocumentation.components,
-            schemas: {
-              ...(components as { schemas?: Record<string, unknown> }).schemas,
-              ...openApiDocumentation.components?.schemas,
-            },
-          },
-        };
-        return stripInvalidOpenApiTypes(spec);
-      },
-      { detail: { hide: true } },
     )
     .onRequest(({ request, set }) => {
       const { headers, preflight } = resolveCors(allowedOrigins, request);
@@ -317,7 +265,6 @@ export function createApp(deps: AppDeps = {}) {
     )
     .use(qrRoutes({ config, db, rateLimiter }));
 
-  appSelf = app;
   return app;
 }
 

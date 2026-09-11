@@ -36,8 +36,10 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ env.IMAGE_NAME }}
-          # v1.2.3 -> 1.2.3, 1.2, 1, and latest
+          # v1.2.3 -> v1.2.3, 1.2.3, 1.2, 1, and latest.
+          # The exact Git release tag is the immutable deployment release name.
           tags: |
+            type=raw,value=${{ github.ref_name }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
